@@ -40,7 +40,7 @@ func TestReplaceAssetsRecursesWithoutChangingUnknownPlaceholders(t *testing.T) {
 }
 
 func TestResolveReceiptUsesPrivateFile(t *testing.T) {
-	t.Setenv("SURFACE_CONFIG_DIR", t.TempDir())
+	t.Setenv("PANE_CONFIG_DIR", t.TempDir())
 	want := receipt{ID: "surface-1", Server: "https://surface.test", ManagementToken: "secret"}
 	if err := saveReceipt(want); err != nil {
 		t.Fatal(err)
@@ -86,7 +86,7 @@ func TestPickRecipeBuildsExpectedSpec(t *testing.T) {
 		io.WriteString(w, `{"id":"s1","url":"http://example/s/p1","management_token":"secret"}`)
 	}))
 	defer server.Close()
-	t.Setenv("SURFACE_CONFIG_DIR", t.TempDir())
+	t.Setenv("PANE_CONFIG_DIR", t.TempDir())
 	var out bytes.Buffer
 	err := recipe("pick", []string{"First choice", "Second choice", "--title", "Pick one", "--server", server.URL, "--theme", "dark"}, &out)
 	if err != nil {
@@ -127,7 +127,7 @@ func TestGalleryRecipeUploadsAndRewritesAssets(t *testing.T) {
 		}
 	}))
 	defer server.Close()
-	t.Setenv("SURFACE_CONFIG_DIR", t.TempDir())
+	t.Setenv("PANE_CONFIG_DIR", t.TempDir())
 	if err := recipe("gallery", []string{"Warm=" + image, "--multi", "--server", server.URL}, io.Discard); err != nil {
 		t.Fatal(err)
 	}
@@ -177,7 +177,7 @@ func TestRecipeInteractionsRequiredByDefaultWithOptionalEscape(t *testing.T) {
 		io.WriteString(w, fmt.Sprintf(`{"id":"s%d","url":"http://example/s/p","management_token":"secret"}`, len(specs)))
 	}))
 	defer server.Close()
-	t.Setenv("SURFACE_CONFIG_DIR", t.TempDir())
+	t.Setenv("PANE_CONFIG_DIR", t.TempDir())
 	if err := recipe("pick", []string{"One", "--server", server.URL}, io.Discard); err != nil {
 		t.Fatal(err)
 	}
@@ -303,7 +303,7 @@ func TestAddEnvelopeIsCompactStableAndPrivate(t *testing.T) {
 
 func TestAddExplicitIDReturnsChainableEnvelope(t *testing.T) {
 	config := t.TempDir()
-	t.Setenv("SURFACE_CONFIG_DIR", config)
+	t.Setenv("PANE_CONFIG_DIR", config)
 	spec := schema.Spec{Version: schema.Version, Title: "Draft", Components: []schema.Component{{Kind: schema.KindDivider}}}
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
@@ -356,7 +356,7 @@ func TestCreateA2UIUsesImportEndpoint(t *testing.T) {
 		io.WriteString(w, `{"id":"s-a2ui","url":"http://example/s/p","management_token":"secret"}`)
 	}))
 	defer server.Close()
-	t.Setenv("SURFACE_CONFIG_DIR", t.TempDir())
+	t.Setenv("PANE_CONFIG_DIR", t.TempDir())
 	if err := create([]string{input, "--format", "a2ui", "--title", "Review", "--ttl", "10m", "--server", server.URL}, io.Discard); err != nil {
 		t.Fatal(err)
 	}
@@ -375,7 +375,7 @@ func TestCreateWithoutSpecSupportsTrailingTheme(t *testing.T) {
 		io.WriteString(w, `{"id":"theme-create","url":"https://example/s/theme","management_token":"secret"}`)
 	}))
 	defer server.Close()
-	t.Setenv("SURFACE_CONFIG_DIR", t.TempDir())
+	t.Setenv("PANE_CONFIG_DIR", t.TempDir())
 	if err := create([]string{"--title", "Dark review", "--server", server.URL, "--theme", "dark"}, io.Discard); err != nil {
 		t.Fatal(err)
 	}
@@ -385,7 +385,7 @@ func TestCreateWithoutSpecSupportsTrailingTheme(t *testing.T) {
 }
 
 func TestResultsReturnsOnlyAgentFriendlyResult(t *testing.T) {
-	t.Setenv("SURFACE_CONFIG_DIR", t.TempDir())
+	t.Setenv("PANE_CONFIG_DIR", t.TempDir())
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.Method != http.MethodGet || r.URL.Path != "/api/v1/surfaces/s-results/results" {
 			t.Fatalf("request %s %s", r.Method, r.URL.Path)

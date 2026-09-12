@@ -43,14 +43,20 @@ There is no VPC, NAT gateway, load balancer, provisioned database capacity, or c
 just deploy
 ```
 
-The command builds the CLI and ARM64 Lambda bootstrap, packages the function through CloudFormation, deploys the `agent-surface` stack in `us-east-1`, waits for completion, and prints the public CloudFront URL. A new distribution can take several minutes to become reachable.
+The command builds the Pane CLI and ARM64 Lambda bootstrap, packages the function through CloudFormation, deploys the `pane-run` stack in `us-east-1`, waits for completion, and prints the public `https://pane.run` URL. A new distribution can take several minutes to become reachable.
 
-Configuration is provided through environment variables:
+The checked-in defaults target the Route 53 zone and ACM certificate for `pane.run`. They can be overridden when deploying another domain:
 
 ```sh
-STACK=my-surface AWS_REGION=us-west-2 just deploy
+STACK=my-pane AWS_REGION=us-west-2 just deploy
 ARTIFACT_BUCKET=my-existing-artifact-bucket just deploy
+PANE_DOMAIN=staging.example.com \
+PANE_HOSTED_ZONE_ID=Z123456789 \
+PANE_CERTIFICATE_ARN=arn:aws:acm:us-east-1:123456789012:certificate/example \
+just deploy
 ```
+
+CloudFront requires its ACM certificate in `us-east-1`, regardless of the stack region. The recipe waits for certificate validation, deploys the stack, uploads `site/index.html` to the private content bucket, and prints the public URL.
 
 Inspect the stack outputs with:
 
@@ -58,10 +64,10 @@ Inspect the stack outputs with:
 just outputs
 ```
 
-Use the `SurfaceURL` output as the CLI server:
+Use the `PaneURL` output as the CLI server:
 
 ```sh
-surface pick --server https://example.cloudfront.net --title "Choose" Alpha Beta
+pane pick --server https://example.cloudfront.net --title "Choose" Alpha Beta
 ```
 
 ## Storage and expiration
@@ -82,19 +88,19 @@ Asset uploads currently pass through API Gateway and Lambda to preserve the exis
 
 ## Updating and operating the stack
 
-Running `just deploy` again packages the current Lambda and updates the same stack. `--no-fail-on-empty-changeset` makes unchanged deployments succeed. CloudFormation waits for the update before the recipe prints `SurfaceURL`.
+Running `just deploy` again packages the current Lambda and updates the same stack. `--no-fail-on-empty-changeset` makes unchanged deployments succeed. CloudFormation waits for the update before the recipe prints `PaneURL`.
 
 Useful diagnostics:
 
 ```sh
 just outputs
-aws logs tail /aws/lambda/agent-surface-surface --follow
-aws cloudformation describe-stack-events --stack-name agent-surface
+aws logs tail /aws/lambda/pane-run-pane --follow
+aws cloudformation describe-stack-events --stack-name pane-run
 ```
 
 Adjust the commands when `STACK` or `AWS_REGION` differs from its default. CloudFront access logging and AWS WAF are intentionally not enabled in V1.
 
-The distribution uses its generated `cloudfront.net` hostname. A custom domain is not currently parameterized; adding one requires an ACM certificate in `us-east-1`, a CloudFront alias, and the corresponding DNS record.
+The distribution is configured with the custom domain, an ACM certificate, and Route 53 A and AAAA alias records. The registrar must delegate the domain to the Route 53 hosted zone before ACM validation and deployment can complete.
 
 ## Local testing
 

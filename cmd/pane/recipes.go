@@ -38,7 +38,7 @@ func recipe(name string, args []string, out io.Writer) error {
 	fs.StringVar(&o.theme, "theme", "", "light, dark, or system")
 	fs.StringVar(&o.submit, "submit", "Done", "submit button label; empty disables submit")
 	fs.DurationVar(&o.ttl, "ttl", 0, "lifetime, for example 30m or 48h (max 168h)")
-	server := fs.String("server", env("SURFACE_SERVER", defaultServer), "service URL")
+	server := fs.String("server", env("PANE_SERVER", defaultServer), "service URL")
 	var multi bool
 	if name == "gallery" || name == "pick" {
 		fs.BoolVar(&multi, "multi", false, "allow multiple selections")
@@ -135,11 +135,11 @@ func recipe(name string, args []string, out io.Writer) error {
 
 func recipeUsage(fs *flag.FlagSet, name string) {
 	examples := map[string]string{
-		"gallery":   `surface gallery --title "Pick a direction" --multi ./mockups/*.png`,
-		"pick":      `surface pick --title "Choose a color" "Ocean blue" "Forest green"`,
-		"rank":      `surface rank --title "Prioritize features" Search Export Sharing`,
-		"checklist": `surface checklist --title "Packing list" Passport Charger Jacket`,
-		"approve":   `surface approve --title "Release review" --body-file release.md --notes "Comments"`,
+		"gallery":   `pane gallery --title "Pick a direction" --multi ./mockups/*.png`,
+		"pick":      `pane pick --title "Choose a color" "Ocean blue" "Forest green"`,
+		"rank":      `pane rank --title "Prioritize features" Search Export Sharing`,
+		"checklist": `pane checklist --title "Packing list" Passport Charger Jacket`,
+		"approve":   `pane approve --title "Release review" --body-file release.md --notes "Comments"`,
 	}
 	fmt.Fprintf(fs.Output(), "Usage: %s\n\nOptions:\n", examples[name])
 	fs.PrintDefaults()
@@ -219,7 +219,7 @@ func add(args []string, in io.Reader, out io.Writer) error {
 		return nil
 	}
 	if len(args) < 2 {
-		return errors.New("add requires a surface id and component kind; run surface add --help")
+		return errors.New("add requires a surface id and component kind; run pane add --help")
 	}
 	surfaceID, err := addSurfaceID(args[0], in)
 	if err != nil {
@@ -228,8 +228,8 @@ func add(args []string, in io.Reader, out io.Writer) error {
 	kind := args[1]
 	fs := flag.NewFlagSet("add "+kind, flag.ContinueOnError)
 	fs.SetOutput(out)
-	server := fs.String("server", env("SURFACE_SERVER", ""), "service URL")
-	token := fs.String("token", env("SURFACE_TOKEN", ""), "management token")
+	server := fs.String("server", env("PANE_SERVER", ""), "service URL")
+	token := fs.String("token", env("PANE_TOKEN", ""), "management token")
 	id := fs.String("id", "", "result key (inferred from label if omitted)")
 	label := fs.String("label", "", "component label")
 	help := fs.String("hint", "", "help text")
@@ -299,14 +299,14 @@ func addSurfaceID(arg string, in io.Reader) (string, error) {
 		return arg, nil
 	}
 	if in == nil {
-		return "", errors.New("add - requires JSON from the previous surface command on stdin")
+		return "", errors.New("add - requires JSON from the previous pane command on stdin")
 	}
 	data, err := io.ReadAll(io.LimitReader(in, 1<<20+1))
 	if err != nil {
 		return "", fmt.Errorf("read piped surface JSON: %w", err)
 	}
 	if len(data) == 0 {
-		return "", errors.New("add - received empty stdin; pipe JSON from surface create or surface add")
+		return "", errors.New("add - received empty stdin; pipe JSON from pane create or pane add")
 	}
 	if len(data) > 1<<20 {
 		return "", errors.New("piped surface JSON exceeds 1 MiB")
@@ -411,7 +411,7 @@ func componentFromAdd(kind string, values []string, id, label, help, placeholder
 	return c, "", nil
 }
 func appendComponent(spec *schema.Spec, component schema.Component) {
-	// Empty `surface create` uses a divider to satisfy V1 schema validation. It is
+	// Empty `pane create` uses a divider to satisfy V1 schema validation. It is
 	// only a bootstrap marker and should not leak into the composed document.
 	if len(spec.Components) == 1 && spec.Components[0].Kind == schema.KindDivider && spec.Components[0].ID == "" {
 		spec.Components = nil
@@ -440,11 +440,11 @@ func flagPresent(args []string, name string) bool {
 }
 func addUsage(w io.Writer) {
 	fmt.Fprintln(w, `Usage:
-  surface add <id|-> heading|text <text>
-  surface add <id|-> image <path> [--label ALT]
-  surface add <id|-> input|textarea|number|checkbox|toggle|approve|approval --label LABEL [--id KEY]
-  surface add <id|-> pick|select|multi-select|checklist|rank|sort [--label LABEL] <item>...
-  surface add <id|-> divider
+  pane add <id|-> heading|text <text>
+  pane add <id|-> image <path> [--label ALT]
+  pane add <id|-> input|textarea|number|checkbox|toggle|approve|approval --label LABEL [--id KEY]
+  pane add <id|-> pick|select|multi-select|checklist|rank|sort [--label LABEL] <item>...
+  pane add <id|-> divider
 
 Use - as the surface id to read the previous create/add JSON from stdin.
 Common options: --id, --label, --hint, --required, --server, --token

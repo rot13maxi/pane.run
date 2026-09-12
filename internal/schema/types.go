@@ -1,4 +1,4 @@
-// Package schema defines the public Agent Surface document and state formats.
+// Package schema defines Pane's public document and state formats.
 package schema
 
 import "time"

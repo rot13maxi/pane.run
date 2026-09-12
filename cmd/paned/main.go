@@ -20,7 +20,7 @@ func main() {
 	baseURL := flag.String("base-url", "http://localhost:8080", "public base URL")
 	flag.Parse()
 
-	logger := log.New(os.Stderr, "surfaced: ", log.LstdFlags)
+	logger := log.New(os.Stderr, "paned: ", log.LstdFlags)
 	st, err := store.Open(*data)
 	if err != nil {
 		logger.Fatalf("open store: %v", err)

@@ -91,11 +91,11 @@ func required(name string) (string, error) {
 	return v, nil
 }
 func main() {
-	table, err := required("SURFACE_TABLE")
+	table, err := required("PANE_TABLE")
 	if err != nil {
 		log.Fatal(err)
 	}
-	bucket, err := required("SURFACE_BUCKET")
+	bucket, err := required("PANE_BUCKET")
 	if err != nil {
 		log.Fatal(err)
 	}

@@ -21,8 +21,8 @@ just example
 The command prints the creation response, including the browser URL and private management token. You can also exercise any CLI recipe directly:
 
 ```sh
-go run ./cmd/surface gallery --server http://localhost:8080 --title "Choose" examples/assets/style-directions/*.png
-go run ./cmd/surface checklist --server http://localhost:8080 --title "Release" Build Test Deploy
+go run ./cmd/pane gallery --server http://localhost:8080 --title "Choose" examples/assets/style-directions/*.png
+go run ./cmd/pane checklist --server http://localhost:8080 --title "Release" Build Test Deploy
 ```
 
 Stop the service with Ctrl-C. Local metadata remains available on the next run. To start with empty state, move or remove `./data` yourself; the project does not provide an automatic destructive cleanup command.
@@ -69,7 +69,7 @@ Local mode dynamically serves `/s/*` and `/a/*` from the Go process. AWS mode wr
 For an integration environment that exercises those services, deploy a separate stack:
 
 ```sh
-STACK=agent-surface-dev just deploy
+STACK=pane-run-dev just deploy
 ```
 
 The deploy command prints that stack's public URL. Pass it to the CLI with `--server`.

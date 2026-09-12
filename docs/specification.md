@@ -6,11 +6,11 @@ are invalid, and interactive components require a stable `id` used as their stat
 
 Most agents should not need to author this document directly. The recipe commands
 (`gallery`, `pick`, `rank`, `checklist`, and `approve`) generate specifications for
-common interactions, while `surface add` composes a small custom surface one primitive
+common interactions, while `pane add` composes a small custom surface one primitive
 at a time. Recipe interactions are required by default and accept `--optional`. For
 add commands, `pick` aliases `select` and `sort` aliases `ranking`. The first added
 component replaces the seed placeholder; the first interactive one adds Submit. Adds
-can be chained with `surface create ... | surface add - ...`. The `-` is explicit and
+can be chained with `pane create ... | pane add - ...`. The `-` is explicit and
 only consumes a prior JSON result when used in the add command's surface-ID slot; no
 command implicitly reads standard input or remembers the last surface. Add output is a
 compact envelope with `id`, `url`, `revision`, and `status`. Shell scripts should use
@@ -34,7 +34,7 @@ reproducible updates.
 seconds and 604,800 seconds. Supported tones are `neutral`, `warm`, `playful`, and
 `professional`. Density is `comfortable` or `compact`. `color_scheme` is `light`,
 `dark`, or `system`; omitting it defaults to `system`. Recipes and spec-free
-`surface create` expose this as `--theme`. Agents should use a remembered user
+`pane create` exposes this as `--theme`. Agents should use a remembered user
 preference when known and otherwise omit the flag. Presentation fields are semantic
 hints, not layout or arbitrary styling instructions.
 

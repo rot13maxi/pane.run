@@ -1,4 +1,4 @@
-# Agent Surface V1
+# Pane V1
 
 Surface lets agents create disposable user interfaces with a CLI. Instead of
 generating and hosting a web app, an agent says what interaction it needs—pick, rank,
@@ -21,9 +21,9 @@ agent reads the results, and the surface disappears when it's no longer needed.
 
 ## V1 workflow
 
-1. The agent chooses the shortest authoring path: a recipe such as `surface gallery`,
-   `surface pick`, `surface rank`, `surface checklist`, or `surface approve` for the
-   common case; `surface add` for a small custom composition; or a complete JSON
+1. The agent chooses the shortest authoring path: a recipe such as `pane gallery`,
+   `pane pick`, `pane rank`, `pane checklist`, or `pane approve` for the
+   common case; `pane add` for a small custom composition; or a complete JSON
    specification as an escape hatch. Recipes and spec-free create accept
    `--theme light|dark|system`; agents use a remembered preference when known and
    otherwise omit it for the system default.
@@ -31,14 +31,14 @@ agent reads the results, and the surface disappears when it's no longer needed.
    writes a local receipt so later commands need only the ID.
 3. A person opens the URL on desktop or mobile. Edits auto-save. Submit changes the
    status to `submitted` but does not lock the page.
-4. `surface results <id>` returns status, revision, timestamps, and values without
+4. `pane results <id>` returns status, revision, timestamps, and values without
    mixing the response with the authoring specification.
-5. The agent may replace the specification with `surface update`; compatible values
+5. The agent may replace the specification with `pane update`; compatible values
    survive. It may close the surface to make it read-only or delete it early.
 
 Recipes and incremental commands are agent UX, not separate platform concepts. They
 compile to the same declarative specification accepted by the HTTP service. Incremental
-commands may be chained explicitly as `surface create ... | surface add - ...`; only
+commands may be chained explicitly as `pane create ... | pane add - ...`; only
 `-` in the add command's surface-ID position reads a prior JSON result from standard
 input. Add emits a compact, chainable result envelope. There is no implicit standard
 input or remembered last surface. Shell scripts should enable `pipefail` so an earlier

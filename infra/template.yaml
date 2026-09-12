@@ -1,7 +1,17 @@
 AWSTemplateFormatVersion: '2010-09-09'
-Description: Agent Surface serverless hosting
+Description: Pane serverless hosting
 
 Parameters:
+  DomainName:
+    Type: String
+    Default: pane.run
+    Description: Public hostname for Pane
+  HostedZoneId:
+    Type: AWS::Route53::HostedZone::Id
+    Description: Route 53 public hosted zone containing DomainName
+  CertificateArn:
+    Type: String
+    Description: ARN of an issued ACM certificate in us-east-1 for DomainName
   FunctionMemory:
     Type: Number
     Default: 256
@@ -10,7 +20,7 @@ Parameters:
     Default: 14
 
 Resources:
-  SurfaceTable:
+  PaneTable:
     Type: AWS::DynamoDB::Table
     Properties:
       BillingMode: PAY_PER_REQUEST
@@ -28,7 +38,7 @@ Resources:
       SSESpecification:
         SSEEnabled: true
 
-  SurfaceBucket:
+  PaneBucket:
     Type: AWS::S3::Bucket
     Properties:
       BucketEncryption:
@@ -49,7 +59,7 @@ Resources:
         Rules:
           - ObjectOwnership: BucketOwnerEnforced
 
-  SurfaceFunctionRole:
+  PaneFunctionRole:
     Type: AWS::IAM::Role
     Properties:
       AssumeRolePolicyDocument:
@@ -60,7 +70,7 @@ Resources:
               Service: lambda.amazonaws.com
             Action: sts:AssumeRole
       Policies:
-        - PolicyName: SurfaceData
+        - PolicyName: PaneData
           PolicyDocument:
             Version: '2012-10-17'
             Statement:
@@ -70,38 +80,38 @@ Resources:
                   - dynamodb:PutItem
                   - dynamodb:DeleteItem
                   - dynamodb:TransactWriteItems
-                Resource: !GetAtt SurfaceTable.Arn
+                Resource: !GetAtt PaneTable.Arn
               - Effect: Allow
                 Action:
                   - s3:PutObject
                   - s3:DeleteObject
-                Resource: !Sub '${SurfaceBucket.Arn}/*'
+                Resource: !Sub '${PaneBucket.Arn}/*'
               - Effect: Allow
                 Action:
                   - logs:CreateLogStream
                   - logs:PutLogEvents
-                Resource: !Sub 'arn:${AWS::Partition}:logs:${AWS::Region}:${AWS::AccountId}:log-group:/aws/lambda/${AWS::StackName}-surface:*'
+                Resource: !Sub 'arn:${AWS::Partition}:logs:${AWS::Region}:${AWS::AccountId}:log-group:/aws/lambda/${AWS::StackName}-pane:*'
 
-  SurfaceFunction:
+  PaneFunction:
     Type: AWS::Lambda::Function
     Properties:
-      FunctionName: !Sub '${AWS::StackName}-surface'
+      FunctionName: !Sub '${AWS::StackName}-pane'
       Architectures: [arm64]
       Runtime: provided.al2023
       Handler: bootstrap
-      Role: !GetAtt SurfaceFunctionRole.Arn
+      Role: !GetAtt PaneFunctionRole.Arn
       MemorySize: !Ref FunctionMemory
       Timeout: 30
       Code: ../build/lambda.zip
       Environment:
         Variables:
-          SURFACE_TABLE: !Ref SurfaceTable
-          SURFACE_BUCKET: !Ref SurfaceBucket
+          PANE_TABLE: !Ref PaneTable
+          PANE_BUCKET: !Ref PaneBucket
 
-  SurfaceLogGroup:
+  PaneLogGroup:
     Type: AWS::Logs::LogGroup
     Properties:
-      LogGroupName: !Sub '/aws/lambda/${AWS::StackName}-surface'
+      LogGroupName: !Sub '/aws/lambda/${AWS::StackName}-pane'
       RetentionInDays: !Ref LogRetentionDays
 
   HttpApi:
@@ -116,7 +126,7 @@ Resources:
     Properties:
       ApiId: !Ref HttpApi
       IntegrationType: AWS_PROXY
-      IntegrationUri: !GetAtt SurfaceFunction.Arn
+      IntegrationUri: !GetAtt PaneFunction.Arn
       PayloadFormatVersion: '2.0'
       TimeoutInMillis: 30000
 
@@ -138,7 +148,7 @@ Resources:
     Type: AWS::Lambda::Permission
     Properties:
       Action: lambda:InvokeFunction
-      FunctionName: !Ref SurfaceFunction
+      FunctionName: !Ref PaneFunction
       Principal: apigateway.amazonaws.com
       SourceArn: !Sub 'arn:${AWS::Partition}:execute-api:${AWS::Region}:${AWS::AccountId}:${HttpApi}/*'
 
@@ -157,7 +167,7 @@ Resources:
       Name: !Sub '${AWS::StackName}-forward-host'
       AutoPublish: true
       FunctionConfig:
-        Comment: Preserve the public host for absolute surface URLs
+        Comment: Preserve the public host for absolute Pane URLs
         Runtime: cloudfront-js-2.0
       FunctionCode: |
         function handler(event) {
@@ -182,14 +192,21 @@ Resources:
     Type: AWS::CloudFront::Distribution
     Properties:
       DistributionConfig:
-        Comment: !Sub '${AWS::StackName} Agent Surface'
+        Comment: !Sub '${AWS::StackName} Pane'
         Enabled: true
+        Aliases:
+          - !Ref DomainName
+        DefaultRootObject: index.html
         HttpVersion: http2and3
         IPV6Enabled: true
         PriceClass: PriceClass_100
+        ViewerCertificate:
+          AcmCertificateArn: !Ref CertificateArn
+          MinimumProtocolVersion: TLSv1.2_2021
+          SslSupportMethod: sni-only
         Origins:
           - Id: objects
-            DomainName: !GetAtt SurfaceBucket.RegionalDomainName
+            DomainName: !GetAtt PaneBucket.RegionalDomainName
             OriginAccessControlId: !Ref OriginAccessControl
             S3OriginConfig:
               OriginAccessIdentity: ''
@@ -226,10 +243,10 @@ Resources:
               - EventType: viewer-request
                 FunctionARN: !GetAtt ForwardViewerHost.FunctionARN
 
-  SurfaceBucketPolicy:
+  PaneBucketPolicy:
     Type: AWS::S3::BucketPolicy
     Properties:
-      Bucket: !Ref SurfaceBucket
+      Bucket: !Ref PaneBucket
       PolicyDocument:
         Version: '2012-10-17'
         Statement:
@@ -238,19 +255,41 @@ Resources:
             Principal:
               Service: cloudfront.amazonaws.com
             Action: s3:GetObject
-            Resource: !Sub '${SurfaceBucket.Arn}/*'
+            Resource: !Sub '${PaneBucket.Arn}/*'
             Condition:
               StringEquals:
                 AWS:SourceArn: !Sub 'arn:${AWS::Partition}:cloudfront::${AWS::AccountId}:distribution/${Distribution}'
 
+  DomainARecord:
+    Type: AWS::Route53::RecordSet
+    Properties:
+      HostedZoneId: !Ref HostedZoneId
+      Name: !Ref DomainName
+      Type: A
+      AliasTarget:
+        DNSName: !GetAtt Distribution.DomainName
+        EvaluateTargetHealth: false
+        HostedZoneId: Z2FDTNDATAQYW2
+
+  DomainAAAARecord:
+    Type: AWS::Route53::RecordSet
+    Properties:
+      HostedZoneId: !Ref HostedZoneId
+      Name: !Ref DomainName
+      Type: AAAA
+      AliasTarget:
+        DNSName: !GetAtt Distribution.DomainName
+        EvaluateTargetHealth: false
+        HostedZoneId: Z2FDTNDATAQYW2
+
 Outputs:
-  SurfaceURL:
-    Description: Public Agent Surface service URL
-    Value: !Sub 'https://${Distribution.DomainName}'
+  PaneURL:
+    Description: Public Pane service URL
+    Value: !Sub 'https://${DomainName}'
   ApiURL:
     Description: Direct API Gateway URL for diagnostics
     Value: !Sub 'https://${HttpApi}.execute-api.${AWS::Region}.${AWS::URLSuffix}'
   BucketName:
-    Value: !Ref SurfaceBucket
+    Value: !Ref PaneBucket
   TableName:
-    Value: !Ref SurfaceTable
+    Value: !Ref PaneTable

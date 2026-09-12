@@ -4,14 +4,14 @@ A surface is a JSON document. The service owns responsive layout; the agent supp
 ordered content, interaction primitives, and optional presentation hints.
 
 This is the canonical protocol and the escape hatch, not the default authoring path.
-First prefer a top-level `surface gallery`, `pick`, `rank`, `checklist`, or `approve`
-recipe. For a small mixed surface, use `surface create --title ...` and then
-`surface add <id> <kind> ...`. Write JSON directly when that is clearer or when the
+First prefer a top-level `pane gallery`, `pick`, `rank`, `checklist`, or `approve`
+recipe. For a small mixed surface, use `pane create --title ...` and then
+`pane add <id> <kind> ...`. Write JSON directly when that is clearer or when the
 full document needs to be reproducible or updated atomically. Recipe interactions are
 required by default; pass `--optional` only to permit empty submission. In incremental
 composition, `pick` aliases `select` and `sort` aliases `ranking`. The first add
 replaces the seed placeholder, and the first interactive add enables Submit. Chain
-composition explicitly with `surface create ... | surface add - ...`. Only `-` in the
+composition explicitly with `pane create ... | pane add - ...`. Only `-` in the
 add command's surface-ID position consumes the prior JSON on standard input; there is
 no implicit stdin or remembered last surface. Add prints a compact envelope containing
 `id`, `url`, `revision`, and `status` for the next command. Bash scripts should enable
@@ -71,21 +71,21 @@ and allowed choices remain compatible.
 ## Raw JSON workflow
 
 ```sh
-surface create spec.json
-surface results <id>
-surface update <id> spec.json
-surface close <id>
-surface delete <id>
+pane create spec.json
+pane results <id>
+pane update <id> spec.json
+pane close <id>
+pane delete <id>
 ```
 
-`surface results` returns the shallow agent-facing result object. Use `surface read`
+`pane results` returns the shallow agent-facing result object. Use `pane read`
 only when inspecting the full stored specification and management document is
 necessary.
 
 To upload local media, reference `asset:<name>` in the JSON and bind it during create:
 
 ```sh
-surface create spec.json --asset name=/absolute/path/image.png
+pane create spec.json --asset name=/absolute/path/image.png
 ```
 
 The create response contains `url`, `id`, and `management_token`. Share only `url`.

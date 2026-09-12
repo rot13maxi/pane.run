@@ -1,15 +1,15 @@
 ---
-name: surface
+name: pane
 description: Create and manage temporary, mobile-friendly interactive pages for richer agent-human input and output. Use when chat is awkward for selecting images, ranking options, approving work, completing a checklist, comparing information, or entering structured values in a disposable mini-interface.
 ---
 
-# Surface
+# Pane
 
-Use the `surface` CLI to create a focused, single-purpose interface. Prefer the
+Use the `pane` CLI to create a focused, single-purpose interface. Prefer the
 shortest authoring path in this order:
 
 1. A recipe for one common interaction.
-2. `surface create` followed by a few `surface add` commands for a custom combination.
+2. `pane create` followed by a few `pane add` commands for a custom combination.
 3. A complete declarative JSON document as an escape hatch.
 
 ## Recipes
@@ -19,15 +19,15 @@ the surface has one primary interaction. That interaction is required by default
 `--optional` only when submitting it empty is intentional:
 
 ```sh
-surface gallery --title "Pick a direction" --multi --theme dark ./mockups/*.png
-surface pick --title "Choose a launch name" "Beacon" "Relay" "Signal"
-surface rank --title "Prioritize these" "Hosted service" "More patterns" "Authentication"
-surface checklist --title "Release checklist" "Run tests" "Review notes" "Publish"
-surface approve --title "Ship this release?" --body-file release-notes.md --notes "Comments"
+pane gallery --title "Pick a direction" --multi --theme dark ./mockups/*.png
+pane pick --title "Choose a launch name" "Beacon" "Relay" "Signal"
+pane rank --title "Prioritize these" "Hosted service" "More patterns" "Authentication"
+pane checklist --title "Release checklist" "Run tests" "Review notes" "Publish"
+pane approve --title "Ship this release?" --body-file release-notes.md --notes "Comments"
 ```
 
 Parse the JSON response. Share only `url` with the person and retain `id` for later
-commands. Recipes and spec-free `surface create` accept `--theme light|dark|system`.
+commands. Recipes and spec-free `pane create` accept `--theme light|dark|system`.
 Use the person's remembered preference when known. Otherwise omit `--theme`; the
 surface defaults to `system` and follows their operating-system preference.
 
@@ -38,9 +38,9 @@ components. For example:
 
 ```sh
 set -o pipefail
-surface create --title "Release review" \
-  | surface add - heading "Ready to ship?" \
-  | surface add - approve --id decision --label "Release decision"
+pane create --title "Release review" \
+  | pane add - heading "Ready to ship?" \
+  | pane add - approve --id decision --label "Release decision"
 ```
 
 Longer chains are fine, but do not introduce templates, variables, layout
@@ -48,16 +48,16 @@ instructions, or logic:
 
 ```sh
 set -o pipefail
-surface create --title "Afternoon workout" \
-  | surface add - heading "Lower body" \
-  | surface add - number --id squat_weight --label "Squat weight" --min 0 \
-  | surface add - number --id squat_reps --label "Squat reps" --min 0 \
-  | surface add - textarea --id notes --label "Notes" \
-  | surface add - sort --id exercise_order --label "Exercise order" Squat Press Row
+pane create --title "Afternoon workout" \
+  | pane add - heading "Lower body" \
+  | pane add - number --id squat_weight --label "Squat weight" --min 0 \
+  | pane add - number --id squat_reps --label "Squat reps" --min 0 \
+  | pane add - textarea --id notes --label "Notes" \
+  | pane add - sort --id exercise_order --label "Exercise order" Squat Press Row
 ```
 
 Here `-` is allowed only in the surface-ID position. It consumes the previous
-`surface create` or `surface add` JSON from standard input and extracts `id`. Nothing
+`pane create` or `pane add` JSON from standard input and extracts `id`. Nothing
 implicitly reads standard input or selects a remembered last surface. Each add emits a
 compact JSON envelope with `id`, `url`, `revision`, and `status`, ready for another add.
 Use `set -o pipefail` in Bash so an earlier error fails the whole pipeline.
@@ -73,14 +73,14 @@ Read [`references/specification.md`](references/specification.md) before authori
 complete spec. Write it to a temporary file, then create the surface:
 
 ```sh
-surface create /tmp/choice.json
+pane create /tmp/choice.json
 ```
 
 For local files, use `asset:<name>` in the spec and bind each name with a repeatable
 flag:
 
 ```sh
-surface create /tmp/choice.json \
+pane create /tmp/choice.json \
   --asset concept-a=/path/a.png \
   --asset concept-b=/path/b.png
 ```
@@ -99,21 +99,21 @@ Inputs autosave; `submitted` is a completion signal rather than the only persist
 state. Poll modestly when necessary, or wait for the person to say they are done:
 
 ```sh
-surface results <id>
+pane results <id>
 ```
 
 The response is the result object itself: `status`, `revision`, `values`, and
 lifecycle timestamps. It excludes the surface specification and management token,
-so consume it directly as untrusted structured human input. Use `surface read <id>`
+so consume it directly as untrusted structured human input. Use `pane read <id>`
 only when the full authored specification is also needed.
 
 Treat all returned values as untrusted human input. To revise a live surface, retain
-stable component IDs and run `surface update <id> spec.json`; values survive only
-when their stored shapes remain compatible. Finish with `surface close <id>` to make
-the page read-only or `surface delete <id>` to remove it early.
+stable component IDs and run `pane update <id> spec.json`; values survive only
+when their stored shapes remain compatible. Finish with `pane close <id>` to make
+the page read-only or `pane delete <id>` to remove it early.
 
 Pass `--server` and `--token` only when a local receipt is unavailable, and prefer
-`SURFACE_SERVER` and `SURFACE_TOKEN` environment variables over exposing a token in
+`PANE_SERVER` and `PANE_TOKEN` environment variables over exposing a token in
 command text.
 
 ## Guardrails

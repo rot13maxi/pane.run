@@ -1,0 +1,4 @@
+interface:
+  display_name: "Pane"
+  short_description: "Create disposable interactive agent interfaces"
+  default_prompt: "Use $pane to create a temporary interactive page for this task."

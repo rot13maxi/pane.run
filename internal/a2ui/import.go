@@ -1,5 +1,5 @@
 // Package a2ui translates a deliberately small, non-executable subset of the
-// A2UI v0.9 protocol into Agent Surface's canonical V1 document.
+// A2UI v0.9 protocol into Pane's canonical V1 document.
 package a2ui
 
 import (
@@ -172,7 +172,7 @@ func Import(data []byte, opts Options) (Result, error) {
 		return Result{}, fmt.Errorf("translated initial state: %w", err)
 	}
 	if len(created.Theme) != 0 {
-		c.warn("A2UI theme was ignored; Agent Surface owns presentation")
+		c.warn("A2UI theme was ignored; Pane owns presentation")
 	}
 	if created.SendDataModel {
 		c.warn("sendDataModel was ignored; Surface state is read through its public or management API")

@@ -1,8 +1,8 @@
 .PHONY: build test check run
 
 build:
-	go build -o bin/surface ./cmd/surface
-	go build -o bin/surfaced ./cmd/surfaced
+	go build -o bin/pane ./cmd/pane
+	go build -o bin/paned ./cmd/paned
 
 test:
 	go test ./...
@@ -13,4 +13,4 @@ check:
 	go test ./...
 
 run:
-	go run ./cmd/surfaced -listen :8080 -data ./data/surfaces.json
+	go run ./cmd/paned -listen :8080 -data ./data/surfaces.json

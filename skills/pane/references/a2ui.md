@@ -5,11 +5,11 @@ A2UI v0.9 or v0.9.1 batch. For a new surface, prefer recipes, incremental compos
 or the native Surface specification.
 
 ```sh
-surface create messages.jsonl --format a2ui --title "Review options"
-producer | surface create - --format a2ui --title "Review options"
+pane create messages.jsonl --format a2ui --title "Review options"
+producer | pane create - --format a2ui --title "Review options"
 ```
 
-Pass `--description` and `--ttl` when needed. A2UI does not define Agent Surface
+Pass `--description` and `--ttl` when needed. A2UI does not define Pane
 lifecycle metadata, so the title defaults to `Imported A2UI surface` and the normal
 24-hour TTL applies when flags are omitted. `--asset` is unavailable for A2UI imports.
 
@@ -31,8 +31,8 @@ unknown components, other button events, missing references, graph cycles, misma
 surface IDs, or a deleted surface. A2UI validation checks are not translated and
 produce a warning. Treat the returned `import.warnings` as material loss information.
 
-After import, use `surface results <id>` for the agent-facing response. Use the
+After import, use `pane results <id>` for the agent-facing response. Use the
 ordinary `update`, `close`, and `delete` commands for lifecycle management, and
-reserve `surface read` for cases that require the full canonical specification.
+reserve `pane read` for cases that require the full canonical specification.
 Updates use canonical Surface V1 JSON, not incremental A2UI messages. Share only the
 returned public `url`; never expose the management token.

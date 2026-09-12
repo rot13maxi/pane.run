@@ -1,8 +1,8 @@
-# Agent Surface contributor guide
+# Pane contributor guide
 
 ## Product boundary
 
-Agent Surface is an ephemeral I/O substrate for agents, not an application builder.
+Pane is an ephemeral I/O substrate for agents, hosted at pane.run—not an application builder.
 Agents declare content and interaction primitives; the service owns layout, responsive
 rendering, hosting, and a tiny key-value state store. Controls may update state but
 must not trigger arbitrary external side effects.
@@ -13,8 +13,8 @@ TTL between 1 minute and 7 days.
 
 ## Repository layout
 
-- `cmd/surface`: Go CLI.
-- `cmd/surfaced`: HTTP service.
+- `cmd/pane`: Go CLI.
+- `cmd/paned`: HTTP service.
 - `internal/schema`: shared specification, validation, and result types.
 - `internal/store`: persistence and capability checks.
 - `internal/server`: HTTP API and asset handling.

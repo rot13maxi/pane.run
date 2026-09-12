@@ -38,7 +38,7 @@ overwriting a newer edit.
 `POST /api/v1/imports/a2ui?protocol=v0.9.1` accepts a bounded complete batch of
 A2UI v0.9 or v0.9.1 envelopes as either a JSON array or a JSON/JSONL sequence.
 The request content type is `application/a2ui+json`. Optional `title`,
-`description`, and `ttl_seconds` query parameters supply Agent Surface lifecycle
+`description`, and `ttl_seconds` query parameters supply Pane lifecycle
 metadata, which A2UI does not define.
 
 This endpoint is a one-way compatibility adapter for existing A2UI producers, not a

@@ -1,4 +1,0 @@
-interface:
-  display_name: "Surface"
-  short_description: "Create disposable interactive agent interfaces"
-  default_prompt: "Use $surface to create a temporary interactive page for this task."

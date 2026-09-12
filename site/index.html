@@ -1,0 +1,248 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="Pane gives agents a small, temporary place to show information and ask for input.">
+  <meta name="theme-color" content="#f4f1e8">
+  <title>Pane — a surface for agents</title>
+  <style>
+    :root {
+      color-scheme: light;
+      --paper: #f4f1e8;
+      --ink: #17221d;
+      --muted: #58625c;
+      --line: #c9cdc4;
+      --accent: #165b42;
+      --panel: rgba(255, 255, 255, 0.48);
+      font-family: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    }
+
+    * { box-sizing: border-box; }
+
+    html { scroll-behavior: smooth; }
+
+    body {
+      min-height: 100vh;
+      margin: 0;
+      color: var(--ink);
+      background:
+        radial-gradient(circle at 78% 12%, rgba(89, 151, 117, 0.17), transparent 30rem),
+        var(--paper);
+    }
+
+    a { color: inherit; }
+
+    .shell {
+      width: min(1120px, calc(100% - 40px));
+      margin-inline: auto;
+    }
+
+    header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      min-height: 88px;
+      border-bottom: 1px solid var(--line);
+    }
+
+    .brand {
+      font-size: 1.2rem;
+      font-weight: 720;
+      letter-spacing: -0.03em;
+      text-decoration: none;
+    }
+
+    .brand span { color: var(--accent); }
+
+    .status {
+      margin: 0;
+      color: var(--muted);
+      font: 0.78rem/1.4 ui-monospace, SFMono-Regular, Menlo, monospace;
+      letter-spacing: 0.05em;
+      text-transform: uppercase;
+    }
+
+    main {
+      display: grid;
+      grid-template-columns: minmax(0, 1.15fr) minmax(300px, 0.85fr);
+      gap: clamp(48px, 8vw, 112px);
+      align-items: center;
+      min-height: calc(100vh - 177px);
+      padding-block: 80px;
+    }
+
+    .eyebrow {
+      margin: 0 0 20px;
+      color: var(--accent);
+      font: 650 0.78rem/1.4 ui-monospace, SFMono-Regular, Menlo, monospace;
+      letter-spacing: 0.09em;
+      text-transform: uppercase;
+    }
+
+    h1 {
+      max-width: 720px;
+      margin: 0;
+      font: 500 clamp(3.7rem, 8.5vw, 7.4rem)/0.88 Georgia, "Times New Roman", serif;
+      letter-spacing: -0.065em;
+    }
+
+    .lede {
+      max-width: 580px;
+      margin: 32px 0 0;
+      color: var(--muted);
+      font-size: clamp(1.08rem, 2vw, 1.3rem);
+      line-height: 1.55;
+    }
+
+    .card {
+      overflow: hidden;
+      border: 1px solid var(--line);
+      border-radius: 18px;
+      background: var(--panel);
+      box-shadow: 0 24px 70px rgba(30, 45, 36, 0.09);
+    }
+
+    .card-bar {
+      display: flex;
+      gap: 7px;
+      padding: 16px 18px;
+      border-bottom: 1px solid var(--line);
+    }
+
+    .dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: #a9afa8;
+    }
+
+    pre {
+      min-height: 180px;
+      margin: 0;
+      padding: 26px;
+      overflow-x: auto;
+      color: #dbe7dd;
+      background: #19251f;
+      font: 0.88rem/1.8 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+      white-space: pre-wrap;
+    }
+
+    .prompt { color: #79cf9e; }
+    .result { color: #9ead9f; }
+
+    .steps {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      border-top: 1px solid var(--line);
+    }
+
+    .step { padding: 22px 20px 24px; }
+    .step + .step { border-left: 1px solid var(--line); }
+
+    .number {
+      display: block;
+      margin-bottom: 8px;
+      color: var(--accent);
+      font: 0.72rem/1 ui-monospace, SFMono-Regular, Menlo, monospace;
+    }
+
+    .step strong {
+      display: block;
+      margin-bottom: 5px;
+      font-size: 0.95rem;
+    }
+
+    .step p {
+      margin: 0;
+      color: var(--muted);
+      font-size: 0.83rem;
+      line-height: 1.45;
+    }
+
+    footer {
+      display: flex;
+      justify-content: space-between;
+      gap: 20px;
+      padding-block: 28px;
+      border-top: 1px solid var(--line);
+      color: var(--muted);
+      font-size: 0.82rem;
+    }
+
+    footer p { margin: 0; }
+
+    @media (max-width: 780px) {
+      .shell { width: min(100% - 28px, 620px); }
+      header { min-height: 72px; }
+      main {
+        grid-template-columns: 1fr;
+        min-height: auto;
+        padding-block: 64px;
+      }
+      h1 { font-size: clamp(3.5rem, 18vw, 5.6rem); }
+      .steps { grid-template-columns: 1fr; }
+      .step + .step {
+        border-top: 1px solid var(--line);
+        border-left: 0;
+      }
+      footer { flex-direction: column; }
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      html { scroll-behavior: auto; }
+    }
+  </style>
+</head>
+<body>
+  <header class="shell">
+    <a class="brand" href="/" aria-label="Pane home">pane<span>.run</span></a>
+    <p class="status">A surface for agents</p>
+  </header>
+
+  <main class="shell">
+    <section aria-labelledby="intro-title">
+      <p class="eyebrow">Show · ask · decide</p>
+      <h1 id="intro-title">Give your agent a pane.</h1>
+      <p class="lede">
+        Pane turns structured output into a focused, temporary web page. Agents can
+        present choices, collect a decision, and get back to work—without building an app.
+      </p>
+    </section>
+
+    <section class="card" aria-label="Pane command example">
+      <div class="card-bar" aria-hidden="true">
+        <span class="dot"></span><span class="dot"></span><span class="dot"></span>
+      </div>
+      <pre><code><span class="prompt">$</span> pane pick --title "Choose a direction" \
+  "Ship the prototype" \
+  "Run one more test"
+
+<span class="result">✓ pane ready
+  https://pane.run/s/...</span></code></pre>
+      <div class="steps">
+        <div class="step">
+          <span class="number">01</span>
+          <strong>Declare</strong>
+          <p>Describe the interaction, not the interface.</p>
+        </div>
+        <div class="step">
+          <span class="number">02</span>
+          <strong>Share</strong>
+          <p>Send one ephemeral, hosted link.</p>
+        </div>
+        <div class="step">
+          <span class="number">03</span>
+          <strong>Continue</strong>
+          <p>Read the answer and carry on.</p>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <footer class="shell">
+    <p>Small interfaces for human–agent collaboration.</p>
+    <p>Temporary by default. No account required.</p>
+  </footer>
+</body>
+</html>

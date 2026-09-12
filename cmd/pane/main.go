@@ -34,7 +34,7 @@ type client struct {
 
 func main() {
 	if err := run(os.Args[1:], os.Stdout, os.Stderr); err != nil {
-		fmt.Fprintln(os.Stderr, "surface:", err)
+		fmt.Fprintln(os.Stderr, "pane:", err)
 		os.Exit(1)
 	}
 }
@@ -62,7 +62,7 @@ func run(args []string, stdout, stderr io.Writer) error {
 	case "delete":
 		return managed(http.MethodDelete, "", args[1:], stdout)
 	case "version":
-		fmt.Fprintln(stdout, "surface dev")
+		fmt.Fprintln(stdout, "pane dev")
 		return nil
 	case "help", "-h", "--help":
 		usage(stdout)
@@ -75,22 +75,22 @@ func run(args []string, stdout, stderr io.Writer) error {
 
 func usage(w io.Writer) {
 	fmt.Fprintln(w, `Usage:
-  surface gallery [options] <image>...
-  surface pick [options] <choice>...
-  surface rank [options] <item>...
-  surface checklist [options] <item>...
-  surface approve [options]
-  surface add <id> <kind> [options] [values...]
+  pane gallery [options] <image>...
+  pane pick [options] <choice>...
+  pane rank [options] <item>...
+  pane checklist [options] <item>...
+  pane approve [options]
+  pane add <id> <kind> [options] [values...]
 
-  surface create [document] [--format surface|a2ui] [--title TITLE] [--server URL] [--asset name=path]
-  surface results <id> [--server URL] [--token TOKEN]
-  surface read <id> [--server URL] [--token TOKEN]
-  surface update <id> <spec.json> [--server URL] [--token TOKEN]
-  surface close <id> [--server URL] [--token TOKEN]
-  surface delete <id> [--server URL] [--token TOKEN]
+  pane create [document] [--format surface|a2ui] [--title TITLE] [--server URL] [--asset name=path]
+  pane results <id> [--server URL] [--token TOKEN]
+  pane read <id> [--server URL] [--token TOKEN]
+  pane update <id> <spec.json> [--server URL] [--token TOKEN]
+  pane close <id> [--server URL] [--token TOKEN]
+  pane delete <id> [--server URL] [--token TOKEN]
 
-Run "surface <command> --help" for recipe and component options.
-Environment: SURFACE_SERVER, SURFACE_TOKEN, SURFACE_CONFIG_DIR`)
+Run "pane <command> --help" for recipe and component options.
+Environment: PANE_SERVER, PANE_TOKEN, PANE_CONFIG_DIR`)
 }
 
 type stringList []string
@@ -104,7 +104,7 @@ func (s *stringList) Set(v string) error {
 func create(args []string, out io.Writer) error {
 	fs := flag.NewFlagSet("create", flag.ContinueOnError)
 	fs.SetOutput(out)
-	server := fs.String("server", env("SURFACE_SERVER", defaultServer), "service URL")
+	server := fs.String("server", env("PANE_SERVER", defaultServer), "service URL")
 	title := fs.String("title", "Untitled surface", "page title when no specification file is given")
 	description := fs.String("description", "", "page description when no specification file is given")
 	theme := fs.String("theme", "", "light, dark, or system")
@@ -191,7 +191,7 @@ func createImportedDocument(c client, document []byte, query url.Values, out io.
 		return errors.New("create response omitted id or management_token")
 	}
 	if err := saveReceipt(receipt{ID: id, Server: c.server, ManagementToken: token}); err != nil {
-		return fmt.Errorf("surface created but receipt could not be saved: %w", err)
+		return fmt.Errorf("pane created but receipt could not be saved: %w", err)
 	}
 	return pretty(out, created)
 }
@@ -211,7 +211,7 @@ func createDocument(c client, spec []byte, assets []string, out io.Writer) error
 		return errors.New("create response omitted id or management_token")
 	}
 	if err := saveReceipt(receipt{ID: id, Server: c.server, ManagementToken: token}); err != nil {
-		return fmt.Errorf("surface created but receipt could not be saved: %w", err)
+		return fmt.Errorf("pane created but receipt could not be saved: %w", err)
 	}
 	uploaded := map[string]string{}
 	for _, item := range assets {
@@ -288,8 +288,8 @@ func managed(method, suffix string, args []string, out io.Writer) error {
 func managedFlags(name string) (*flag.FlagSet, *string, *string) {
 	fs := flag.NewFlagSet(name, flag.ContinueOnError)
 	fs.SetOutput(io.Discard)
-	server := fs.String("server", env("SURFACE_SERVER", ""), "service URL")
-	token := fs.String("token", env("SURFACE_TOKEN", ""), "management token")
+	server := fs.String("server", env("PANE_SERVER", ""), "service URL")
+	token := fs.String("token", env("PANE_TOKEN", ""), "management token")
 	return fs, server, token
 }
 
@@ -421,14 +421,14 @@ func replaceAssets(v any, assets map[string]string) any {
 }
 
 func configDir() (string, error) {
-	if v := os.Getenv("SURFACE_CONFIG_DIR"); v != "" {
+	if v := os.Getenv("PANE_CONFIG_DIR"); v != "" {
 		return v, nil
 	}
 	dir, err := os.UserConfigDir()
 	if err != nil {
 		return "", err
 	}
-	return filepath.Join(dir, "surface", "receipts"), nil
+	return filepath.Join(dir, "pane", "receipts"), nil
 }
 
 func saveReceipt(r receipt) error {
@@ -466,7 +466,7 @@ func resolveReceipt(id, server, token string) (receipt, error) {
 		}
 	}
 	if server == "" {
-		server = env("SURFACE_SERVER", defaultServer)
+		server = env("PANE_SERVER", defaultServer)
 	}
 	if token == "" {
 		return receipt{}, errors.New("management token not found; pass --token or use the machine that created the surface")
