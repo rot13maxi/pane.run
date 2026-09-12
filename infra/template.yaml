@@ -52,8 +52,13 @@ Resources:
         RestrictPublicBuckets: true
       LifecycleConfiguration:
         Rules:
-          - Id: RemoveExpiredSurfaceObjects
+          - Id: RemoveExpiredSurfacePages
             Status: Enabled
+            Prefix: s/
+            ExpirationInDays: 8
+          - Id: RemoveExpiredSurfaceAssets
+            Status: Enabled
+            Prefix: a/
             ExpirationInDays: 8
       OwnershipControls:
         Rules:
