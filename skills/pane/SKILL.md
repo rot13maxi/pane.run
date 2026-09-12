@@ -12,6 +12,18 @@ shortest authoring path in this order:
 2. `pane create` followed by a few `pane add` commands for a custom combination.
 3. A complete declarative JSON document as an escape hatch.
 
+Choose the path by the requested validation semantics, not just by visual similarity:
+
+- Use `pick` for one choice from a fixed set, including discrete scales such as 1–5.
+  Use `number` only for genuinely numeric input; add `--min` and `--max` when bounded.
+- Recipe `--multi` allows any number of selections. Use a raw spec for an exact or
+  bounded count such as "choose up to two."
+- Recipe `required` means the stored value must be non-empty; it does not mean every
+  checklist item must be checked. Use a raw spec with matching `min_selections` and
+  `max_selections` when all items are mandatory.
+- Use a raw spec for constraints that `pane add` does not expose, including selection
+  bounds, numeric steps, text-length bounds, sections, links, and comparisons.
+
 ## Recipes
 
 Recipes infer a valid spec, stable IDs, and local asset bindings. Use them whenever
@@ -65,7 +77,8 @@ Use `set -o pipefail` in Bash so an earlier error fails the whole pipeline.
 Use the `id` returned by `create`. The first add replaces the seed placeholder, and
 the first interactive add enables a `Done` action. Each add publishes immediately.
 Use `pick` for a single select and `sort` for a ranking list; `select` and `rank` are
-also accepted. Prefer stable descriptive IDs because returned values are keyed by them.
+also accepted. Added fields are optional unless passed `--required`. Prefer stable
+descriptive IDs because returned values are keyed by them.
 
 ## Raw specification escape hatch
 
