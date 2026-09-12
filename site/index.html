@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <meta name="description" content="Pane gives agents a small, temporary place to show information and ask for input.">
+  <meta name="description" content="Pane gives your agent a simple, temporary web page to show you things and collect your input—without building an app.">
   <meta name="theme-color" content="#f4f1e8">
   <link rel="alternate" type="text/markdown" href="/index.md" title="Pane in Markdown">
   <title>Pane — a surface for agents</title>
@@ -97,6 +97,14 @@
       line-height: 1.55;
     }
 
+    .description {
+      max-width: 600px;
+      margin: 20px 0 0;
+      color: var(--muted);
+      font-size: 0.98rem;
+      line-height: 1.65;
+    }
+
     .card {
       overflow: hidden;
       border: 1px solid var(--line);
@@ -162,6 +170,88 @@
       line-height: 1.45;
     }
 
+    .examples {
+      padding-block: 72px 88px;
+      border-top: 1px solid var(--line);
+    }
+
+    .examples h2 {
+      max-width: 640px;
+      margin: 0;
+      font: 500 clamp(2.2rem, 5vw, 4rem)/1 Georgia, "Times New Roman", serif;
+      letter-spacing: -0.045em;
+    }
+
+    .example-list {
+      border-top: 1px solid var(--line);
+      margin-top: 36px;
+    }
+
+    .example {
+      border-bottom: 1px solid var(--line);
+    }
+
+    .example summary {
+      display: grid;
+      grid-template-columns: minmax(160px, 0.7fr) minmax(0, 1fr) auto;
+      gap: 24px;
+      align-items: center;
+      padding: 22px 4px;
+      cursor: pointer;
+      list-style: none;
+    }
+
+    .example summary::-webkit-details-marker { display: none; }
+
+    .example summary::after {
+      content: "+";
+      color: var(--accent);
+      font: 400 1.4rem/1 ui-monospace, SFMono-Regular, Menlo, monospace;
+    }
+
+    .example[open] summary::after { content: "−"; }
+
+    .example strong { font-size: 0.98rem; }
+
+    .example summary span {
+      margin: 0;
+      color: var(--muted);
+      font-size: 0.84rem;
+      line-height: 1.5;
+    }
+
+    .example-demo { margin: 2px 0 28px; }
+
+    .example-label {
+      margin: 0 0 10px;
+      color: var(--muted);
+      font-size: 0.84rem;
+    }
+
+    .example-command {
+      min-height: 0;
+      margin: 0 0 18px;
+      padding: 16px 18px;
+      border-radius: 10px;
+      font-size: 0.82rem;
+      line-height: 1.6;
+    }
+
+    .example figure {
+      margin: 0;
+      overflow: hidden;
+      border: 1px solid var(--line);
+      border-radius: 16px;
+      background: var(--panel);
+      box-shadow: 0 18px 50px rgba(30, 45, 36, 0.08);
+    }
+
+    .example img {
+      display: block;
+      width: 100%;
+      height: auto;
+    }
+
     footer {
       display: flex;
       justify-content: space-between;
@@ -188,6 +278,13 @@
         border-top: 1px solid var(--line);
         border-left: 0;
       }
+      .examples { padding-block: 56px 64px; }
+      .example summary {
+        grid-template-columns: 1fr auto;
+        gap: 6px 16px;
+      }
+      .example summary span { grid-column: 1; }
+      .example summary::after { grid-column: 2; grid-row: 1 / span 2; }
       footer { flex-direction: column; }
     }
 
@@ -207,8 +304,14 @@
       <p class="eyebrow">Show · ask · decide</p>
       <h1 id="intro-title">Give your agent a pane.</h1>
       <p class="lede">
-        Pane turns structured output into a focused, temporary web page. Agents can
-        present choices, collect a decision, and get back to work—without building an app.
+        Pane gives your agent a simple, temporary web page to show you things and
+        collect your input—without building an app.
+      </p>
+      <p class="description">
+        Chat is great for conversation, but awkward for comparing images, ranking options,
+        reviewing work, or giving a clear approval. With one command, your agent creates a
+        shareable page you can open on any device. When you’re done, it reads your response
+        and gets back to work.
       </p>
       <p><code>curl -fsSL https://pane.run/install.sh | sh</code></p>
     </section>
@@ -242,6 +345,69 @@
       </div>
     </section>
   </main>
+
+  <section class="examples shell" aria-labelledby="examples-title">
+    <p class="eyebrow">Built for more than chat</p>
+    <h2 id="examples-title">One tool call creates the right interface.</h2>
+    <div class="example-list">
+      <details class="example">
+        <summary>
+          <strong>Compare directions</strong>
+          <span>See visual options side by side and choose one.</span>
+        </summary>
+        <div class="example-demo">
+          <p class="example-label">Your agent runs:</p>
+          <pre class="example-command"><code><span class="prompt">$</span> pane gallery --title "Choose a direction" ./concepts/*.png</code></pre>
+          <p class="example-label">and gets a shareable link that looks like this:</p>
+          <figure>
+            <img src="/assets/examples/style-directions.png" alt="A Pane gallery for comparing four visual design directions" loading="lazy">
+          </figure>
+        </div>
+      </details>
+      <details class="example">
+        <summary>
+          <strong>Rank priorities</strong>
+          <span>Put ideas, tasks, or tradeoffs in order.</span>
+        </summary>
+        <div class="example-demo">
+          <p class="example-label">Your agent runs:</p>
+          <pre class="example-command"><code><span class="prompt">$</span> pane rank --title "What should we build next?" "Hosted service" "More patterns" "Accounts"</code></pre>
+          <p class="example-label">and gets a shareable link that looks like this:</p>
+          <figure>
+            <img src="/assets/examples/priorities.png" alt="A Pane interface for ranking product priorities" loading="lazy">
+          </figure>
+        </div>
+      </details>
+      <details class="example">
+        <summary>
+          <strong>Review and approve</strong>
+          <span>Inspect the details and give a clear go or no-go.</span>
+        </summary>
+        <div class="example-demo">
+          <p class="example-label">Your agent runs:</p>
+          <pre class="example-command"><code><span class="prompt">$</span> pane create release-review.json</code></pre>
+          <p class="example-label">and gets a shareable link that looks like this:</p>
+          <figure>
+            <img src="/assets/examples/release-review.png" alt="A Pane release review with a checklist, approval control, and notes" loading="lazy">
+          </figure>
+        </div>
+      </details>
+      <details class="example">
+        <summary>
+          <strong>Track a workout</strong>
+          <span>Log weights and reps, then check off each exercise.</span>
+        </summary>
+        <div class="example-demo">
+          <p class="example-label">Your agent runs:</p>
+          <pre class="example-command"><code><span class="prompt">$</span> pane create workout.json</code></pre>
+          <p class="example-label">and gets a shareable link that looks like this:</p>
+          <figure>
+            <img src="/assets/examples/workout.png" alt="A Pane workout tracker for logging weights, reps, and completed exercises" loading="lazy">
+          </figure>
+        </div>
+      </details>
+    </div>
+  </section>
 
   <footer class="shell">
     <p>Small interfaces for human–agent collaboration.</p>

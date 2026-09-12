@@ -77,6 +77,7 @@ deploy: build
     aws s3 cp site/index.md "s3://${content_bucket}/index.md" --content-type 'text/markdown; charset=utf-8' --cache-control no-store; \
     aws s3 cp site/llms.txt "s3://${content_bucket}/llms.txt" --content-type 'text/plain; charset=utf-8' --cache-control no-store; \
     aws s3 cp site/install.sh "s3://${content_bucket}/install.sh" --content-type 'text/x-shellscript; charset=utf-8' --cache-control no-store; \
+    aws s3 sync site/assets "s3://${content_bucket}/assets" --cache-control no-store; \
     aws cloudformation describe-stacks \
       --region "{{region}}" \
       --stack-name "{{stack}}" \
