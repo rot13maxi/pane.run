@@ -59,10 +59,23 @@ surface create examples/gallery.json
 surface update <id> examples/gallery.json
 ```
 
-## Development
+## Local development
+
+Run the filesystem-backed service, then create a surface from another terminal:
 
 ```sh
-go test ./...
-go run ./cmd/surfaced -listen :8080 -data ./data/surfaces.json
-go run ./cmd/surface pick --server http://localhost:8080 --title "Pick one" Alpha Beta
+just run
+just example
 ```
+
+Use `just test`, `just check`, and `just build` for automated checks and deployment artifacts. See [`docs/local-development.md`](docs/local-development.md) for configuration, persistence, example commands, and differences from AWS.
+
+## Deploy to AWS
+
+A pay-per-use AWS deployment is defined in [`infra/template.yaml`](infra/template.yaml). It uses CloudFront, private S3, API Gateway, Lambda, and DynamoDB. With the prerequisites installed and AWS credentials configured:
+
+```sh
+just deploy
+```
+
+See [`docs/deployment.md`](docs/deployment.md) for configuration, architecture, and expiration details.
