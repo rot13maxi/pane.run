@@ -208,6 +208,40 @@ Resources:
           ContentTypeOptions:
             Override: true
 
+  NoCachePolicy:
+    Type: AWS::CloudFront::CachePolicy
+    Properties:
+      CachePolicyConfig:
+        Name: !Sub '${AWS::StackName}-no-cache'
+        Comment: Pane responses are ephemeral and must not be cached
+        DefaultTTL: 0
+        MaxTTL: 0
+        MinTTL: 0
+        ParametersInCacheKeyAndForwardedToOrigin:
+          CookiesConfig:
+            CookieBehavior: none
+          EnableAcceptEncodingBrotli: true
+          EnableAcceptEncodingGzip: true
+          HeadersConfig:
+            HeaderBehavior: none
+          QueryStringsConfig:
+            QueryStringBehavior: none
+
+  ApiOriginRequestPolicy:
+    Type: AWS::CloudFront::OriginRequestPolicy
+    Properties:
+      OriginRequestPolicyConfig:
+        Name: !Sub '${AWS::StackName}-api-origin'
+        Comment: Forward API request data while preserving the origin Host header
+        CookiesConfig:
+          CookieBehavior: all
+        HeadersConfig:
+          HeaderBehavior: allExcept
+          Headers:
+            - host
+        QueryStringsConfig:
+          QueryStringBehavior: all
+
   Distribution:
     Type: AWS::CloudFront::Distribution
     Properties:
@@ -241,7 +275,7 @@ Resources:
           AllowedMethods: [GET, HEAD, OPTIONS]
           CachedMethods: [GET, HEAD, OPTIONS]
           Compress: true
-          CachePolicyId: 413f2c86-9e47-4b5c-9c9c-7800b2c3c08d
+          CachePolicyId: !Ref NoCachePolicy
           FunctionAssociations:
             - EventType: viewer-request
               FunctionARN: !GetAtt NegotiateLanding.FunctionARN
@@ -252,7 +286,7 @@ Resources:
             AllowedMethods: [GET, HEAD, OPTIONS]
             CachedMethods: [GET, HEAD, OPTIONS]
             Compress: true
-            CachePolicyId: 413f2c86-9e47-4b5c-9c9c-7800b2c3c08d
+            CachePolicyId: !Ref NoCachePolicy
             ResponseHeadersPolicyId: !Ref AssetResponseHeaders
           - PathPattern: '/api/*'
             TargetOriginId: api
@@ -260,8 +294,8 @@ Resources:
             AllowedMethods: [GET, HEAD, OPTIONS, PUT, POST, PATCH, DELETE]
             CachedMethods: [GET, HEAD, OPTIONS]
             Compress: true
-            CachePolicyId: 413f2c86-9e47-4b5c-9c9c-7800b2c3c08d
-            OriginRequestPolicyId: b689b0a8-53d0-40ab-baf2-68738e2966ac
+            CachePolicyId: !Ref NoCachePolicy
+            OriginRequestPolicyId: !Ref ApiOriginRequestPolicy
             FunctionAssociations:
               - EventType: viewer-request
                 FunctionARN: !GetAtt ForwardViewerHost.FunctionARN
