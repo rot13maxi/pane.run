@@ -27,6 +27,14 @@ PANE_INSTALL_DIR=/usr/local/bin sh install.sh
 
 Environment assignments applied to `curl` do not carry through a pipe to `sh`; download the script first when setting installer variables.
 
+The installed CLI connects to `https://pane.run` by default. To use another
+deployment, set `PANE_SERVER` or pass `--server` to an individual command:
+
+```sh
+PANE_SERVER=http://localhost:8080 pane pick "Alpha" "Beta"
+pane pick --server https://pane.example "Alpha" "Beta"
+```
+
 ## Install the agent skill
 
 Skill installation is a separate, explicit operation:

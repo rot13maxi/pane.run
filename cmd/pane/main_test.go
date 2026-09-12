@@ -40,6 +40,46 @@ func TestVersionReportsBuildMetadata(t *testing.T) {
 	}
 }
 
+func TestDefaultServerIsHostedService(t *testing.T) {
+	if defaultServer != "https://pane.run" {
+		t.Fatalf("defaultServer = %q, want hosted service", defaultServer)
+	}
+}
+
+func TestRequestFormatsJSONErrorEnvelope(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusBadRequest)
+		io.WriteString(w, `{"error":{"code":"invalid_spec","message":"title is required"}}`)
+	}))
+	defer server.Close()
+
+	_, err := newClient(server.URL).request(http.MethodPost, "/api/v1/surfaces", "", "application/json", nil)
+	want := "service returned 400 Bad Request: invalid_spec: title is required"
+	if err == nil || err.Error() != want {
+		t.Fatalf("error = %q, want %q", err, want)
+	}
+}
+
+func TestRequestDoesNotDumpHTMLResponse(t *testing.T) {
+	const html = `<!doctype html><html><body><h1>Not Found</h1><p>sensitive noisy proxy response</p></body></html>`
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.Header().Set("Content-Type", "text/html")
+		w.WriteHeader(http.StatusNotFound)
+		io.WriteString(w, html)
+	}))
+	defer server.Close()
+
+	_, err := newClient(server.URL).request(http.MethodGet, "/api/v1/surfaces/missing", "", "application/json", nil)
+	want := "service returned 404 Not Found with a non-JSON error response; check --server or PANE_SERVER"
+	if err == nil || err.Error() != want {
+		t.Fatalf("error = %q, want %q", err, want)
+	}
+	if strings.Contains(err.Error(), "<!doctype") || strings.Contains(err.Error(), "sensitive noisy proxy response") {
+		t.Fatalf("HTML response leaked into error: %q", err)
+	}
+}
+
 func TestReplaceAssetsRecursesWithoutChangingUnknownPlaceholders(t *testing.T) {
 	var input any
 	if err := json.Unmarshal([]byte(`{"hero":"asset:cover","items":[{"src":"asset:thumb"}],"other":"asset:missing"}`), &input); err != nil {

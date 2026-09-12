@@ -15,14 +15,13 @@ import (
 	"path/filepath"
 	"strconv"
 	"strings"
-
-	paneskill "github.com/agent-surface/agent-surface/skills/pane"
 	"time"
 
 	"github.com/agent-surface/agent-surface/internal/schema"
+	paneskill "github.com/agent-surface/agent-surface/skills/pane"
 )
 
-const defaultServer = "http://localhost:8080"
+const defaultServer = "https://pane.run"
 
 // These values are populated by the release workflow with -ldflags. Keeping
 // useful defaults makes locally built binaries easy to identify.
@@ -378,9 +377,25 @@ func (c client) request(method, path, token, contentType string, body []byte) ([
 		return nil, err
 	}
 	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
-		return nil, fmt.Errorf("service returned %s: %s", resp.Status, strings.TrimSpace(string(data)))
+		return nil, responseError(resp.Status, data)
 	}
 	return data, nil
+}
+
+func responseError(status string, data []byte) error {
+	var envelope struct {
+		Error struct {
+			Code    string `json:"code"`
+			Message string `json:"message"`
+		} `json:"error"`
+	}
+	if json.Unmarshal(data, &envelope) == nil && envelope.Error.Message != "" {
+		if envelope.Error.Code != "" {
+			return fmt.Errorf("service returned %s: %s: %s", status, envelope.Error.Code, envelope.Error.Message)
+		}
+		return fmt.Errorf("service returned %s: %s", status, envelope.Error.Message)
+	}
+	return fmt.Errorf("service returned %s with a non-JSON error response; check --server or PANE_SERVER", status)
 }
 
 func (c client) upload(id, token, path string) (string, error) {

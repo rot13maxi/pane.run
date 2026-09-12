@@ -20,6 +20,9 @@ pane skill install codex
 
 The installer downloads a checksum-verified binary from [GitHub Releases](https://github.com/rot13maxi/pane.run/releases). Skill installation is explicit and supports Codex, Claude Code, Pi, OMP, Hermes, OpenCode, and other harnesses (`pane skill list`). See [`docs/installation.md`](docs/installation.md).
 
+The CLI connects to `https://pane.run` by default. Set `PANE_SERVER` or pass
+`--server` to target another deployment, including a local development server.
+
 ## Create a surface
 
 Start with a recipe. Recipes cover common agent/human interactions without making
