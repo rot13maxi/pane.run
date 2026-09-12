@@ -101,8 +101,9 @@ func usage(w io.Writer) {
   pane update <id> <spec.json> [--server URL] [--token TOKEN]
   pane close <id> [--server URL] [--token TOKEN]
   pane delete <id> [--server URL] [--token TOKEN]
-  pane skill install [--force] codex
-  pane skill path codex
+  pane skill install [--force] <harness>
+  pane skill path <harness>
+  pane skill list
   pane skill print
 
 Run "pane <command> --help" for recipe and component options.
@@ -511,9 +512,17 @@ func env(key, fallback string) string {
 
 func skill(args []string, out io.Writer) error {
 	if len(args) == 0 {
-		return errors.New("skill requires install, path, or print")
+		return errors.New("skill requires install, path, list, or print")
 	}
 	switch args[0] {
+	case "list":
+		if len(args) != 1 {
+			return errors.New("usage: pane skill list")
+		}
+		for _, harness := range skillHarnesses {
+			fmt.Fprintf(out, "%s\t%s\n", harness.name, harness.displayName)
+		}
+		return nil
 	case "print":
 		if len(args) != 1 {
 			return errors.New("usage: pane skill print")
@@ -525,10 +534,14 @@ func skill(args []string, out io.Writer) error {
 		_, err = out.Write(content)
 		return err
 	case "path":
-		if len(args) != 2 || args[1] != "codex" {
-			return errors.New("usage: pane skill path codex")
+		if len(args) != 2 {
+			return errors.New("usage: pane skill path <harness>")
 		}
-		destination, err := codexSkillPath()
+		harness, err := findSkillHarness(args[1])
+		if err != nil {
+			return err
+		}
+		destination, err := skillPath(harness)
 		if err != nil {
 			return err
 		}
@@ -544,34 +557,84 @@ func skill(args []string, out io.Writer) error {
 			}
 			return err
 		}
-		if flags.NArg() != 1 || flags.Arg(0) != "codex" {
-			return errors.New("usage: pane skill install [--force] codex")
+		if flags.NArg() != 1 {
+			return errors.New("usage: pane skill install [--force] <harness>")
 		}
-		destination, err := installCodexSkill(*force)
+		harness, err := findSkillHarness(flags.Arg(0))
 		if err != nil {
 			return err
 		}
-		fmt.Fprintf(out, "Installed Pane skill for Codex at %s\n", destination)
+		destination, err := installSkill(harness, *force)
+		if err != nil {
+			return err
+		}
+		fmt.Fprintf(out, "Installed Pane skill for %s at %s\n", harness.displayName, destination)
 		return nil
 	default:
 		return fmt.Errorf("unknown skill command %q", args[0])
 	}
 }
 
-func codexSkillPath() (string, error) {
-	root := strings.TrimSpace(os.Getenv("CODEX_HOME"))
-	if root == "" {
-		home, err := os.UserHomeDir()
-		if err != nil {
-			return "", fmt.Errorf("find home directory: %w", err)
-		}
-		root = filepath.Join(home, ".codex")
-	}
-	return filepath.Join(root, "skills", "pane"), nil
+type skillHarness struct {
+	name        string
+	displayName string
+	aliases     []string
+	path        []string
+	rootEnv     string
 }
 
-func installCodexSkill(force bool) (string, error) {
-	destination, err := codexSkillPath()
+// Paths follow the global agent registry published by skills.sh. OMP is also
+// included using its native skill directory even though it is not yet listed
+// in that registry.
+var skillHarnesses = []skillHarness{
+	{name: "codex", displayName: "Codex", path: []string{".codex", "skills"}, rootEnv: "CODEX_HOME"},
+	{name: "claude-code", displayName: "Claude Code", aliases: []string{"claude"}, path: []string{".claude", "skills"}},
+	{name: "pi", displayName: "Pi", path: []string{".pi", "agent", "skills"}},
+	{name: "omp", displayName: "Oh My Pi", aliases: []string{"oh-my-pi"}, path: []string{".omp", "agent", "skills"}},
+	{name: "hermes-agent", displayName: "Hermes Agent", aliases: []string{"hermes"}, path: []string{".hermes", "skills"}},
+	{name: "opencode", displayName: "OpenCode", path: []string{".config", "opencode", "skills"}},
+	{name: "gemini-cli", displayName: "Gemini CLI", aliases: []string{"gemini"}, path: []string{".gemini", "skills"}},
+	{name: "cursor", displayName: "Cursor", path: []string{".cursor", "skills"}},
+	{name: "github-copilot", displayName: "GitHub Copilot", aliases: []string{"copilot"}, path: []string{".copilot", "skills"}},
+	{name: "openclaw", displayName: "OpenClaw", path: []string{".openclaw", "skills"}},
+	{name: "cline", displayName: "Cline", path: []string{".agents", "skills"}},
+	{name: "kiro-cli", displayName: "Kiro CLI", aliases: []string{"kiro"}, path: []string{".kiro", "skills"}},
+	{name: "roo", displayName: "Roo Code", aliases: []string{"roo-code"}, path: []string{".roo", "skills"}},
+	{name: "goose", displayName: "Goose", path: []string{".config", "goose", "skills"}},
+	{name: "aider-desk", displayName: "AiderDesk", path: []string{".aider-desk", "skills"}},
+}
+
+func findSkillHarness(name string) (skillHarness, error) {
+	name = strings.ToLower(strings.TrimSpace(name))
+	for _, harness := range skillHarnesses {
+		if name == harness.name {
+			return harness, nil
+		}
+		for _, alias := range harness.aliases {
+			if name == alias {
+				return harness, nil
+			}
+		}
+	}
+	return skillHarness{}, fmt.Errorf("unsupported skill harness %q; run \"pane skill list\" for supported harnesses", name)
+}
+
+func skillPath(harness skillHarness) (string, error) {
+	if harness.rootEnv != "" {
+		if root := strings.TrimSpace(os.Getenv(harness.rootEnv)); root != "" {
+			return filepath.Join(root, "skills", "pane"), nil
+		}
+	}
+	home, err := os.UserHomeDir()
+	if err != nil {
+		return "", fmt.Errorf("find home directory: %w", err)
+	}
+	parts := append([]string{home}, harness.path...)
+	return filepath.Join(append(parts, "pane")...), nil
+}
+
+func installSkill(harness skillHarness, force bool) (string, error) {
+	destination, err := skillPath(harness)
 	if err != nil {
 		return "", err
 	}

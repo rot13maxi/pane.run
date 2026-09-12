@@ -477,3 +477,57 @@ func TestSkillPrintAndPath(t *testing.T) {
 		t.Fatalf("path=%q", out.String())
 	}
 }
+
+func TestSkillHarnessPaths(t *testing.T) {
+	home := t.TempDir()
+	t.Setenv("HOME", home)
+	t.Setenv("CODEX_HOME", "")
+	tests := map[string]string{
+		"claude":     filepath.Join(home, ".claude", "skills", "pane"),
+		"pi":         filepath.Join(home, ".pi", "agent", "skills", "pane"),
+		"omp":        filepath.Join(home, ".omp", "agent", "skills", "pane"),
+		"hermes":     filepath.Join(home, ".hermes", "skills", "pane"),
+		"opencode":   filepath.Join(home, ".config", "opencode", "skills", "pane"),
+		"gemini-cli": filepath.Join(home, ".gemini", "skills", "pane"),
+		"openclaw":   filepath.Join(home, ".openclaw", "skills", "pane"),
+		"aider-desk": filepath.Join(home, ".aider-desk", "skills", "pane"),
+	}
+	for harness, want := range tests {
+		t.Run(harness, func(t *testing.T) {
+			var out bytes.Buffer
+			if err := run([]string{"skill", "path", harness}, &out, io.Discard); err != nil {
+				t.Fatal(err)
+			}
+			if got := strings.TrimSpace(out.String()); got != want {
+				t.Fatalf("path=%q, want %q", got, want)
+			}
+		})
+	}
+}
+
+func TestSkillInstallHarnessAndList(t *testing.T) {
+	home := t.TempDir()
+	t.Setenv("HOME", home)
+	var out bytes.Buffer
+	if err := run([]string{"skill", "install", "claude"}, &out, io.Discard); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := os.Stat(filepath.Join(home, ".claude", "skills", "pane", "SKILL.md")); err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(out.String(), "Claude Code") {
+		t.Fatalf("install output=%q", out.String())
+	}
+	out.Reset()
+	if err := run([]string{"skill", "list"}, &out, io.Discard); err != nil {
+		t.Fatal(err)
+	}
+	for _, harness := range []string{"codex", "claude-code", "pi", "omp", "hermes-agent", "opencode"} {
+		if !strings.Contains(out.String(), harness+"\t") {
+			t.Fatalf("list missing %q: %s", harness, out.String())
+		}
+	}
+	if err := run([]string{"skill", "path", "unknown"}, io.Discard, io.Discard); err == nil || !strings.Contains(err.Error(), "pane skill list") {
+		t.Fatalf("unknown harness error=%v", err)
+	}
+}

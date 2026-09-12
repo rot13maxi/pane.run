@@ -18,7 +18,7 @@ curl -fsSL https://pane.run/install.sh | sh
 pane skill install codex
 ```
 
-The installer downloads a checksum-verified binary from [GitHub Releases](https://github.com/rot13maxi/pane.run/releases). Skill installation is explicit and writes the bundled Pane skill to Codex's skill directory. See [`docs/installation.md`](docs/installation.md).
+The installer downloads a checksum-verified binary from [GitHub Releases](https://github.com/rot13maxi/pane.run/releases). Skill installation is explicit and supports Codex, Claude Code, Pi, OMP, Hermes, OpenCode, and other harnesses (`pane skill list`). See [`docs/installation.md`](docs/installation.md).
 
 ## Create a surface
 

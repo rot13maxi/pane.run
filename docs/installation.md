@@ -27,7 +27,7 @@ PANE_INSTALL_DIR=/usr/local/bin sh install.sh
 
 Environment assignments applied to `curl` do not carry through a pipe to `sh`; download the script first when setting installer variables.
 
-## Install the Codex skill
+## Install the agent skill
 
 Skill installation is a separate, explicit operation:
 
@@ -35,7 +35,28 @@ Skill installation is a separate, explicit operation:
 pane skill install codex
 ```
 
-The CLI contains the matching Pane skill files. It installs them at `$CODEX_HOME/skills/pane` when `CODEX_HOME` is set, otherwise at `~/.codex/skills/pane`. Existing installations are preserved unless replacement is requested:
+The CLI contains the matching Pane skill files and can install them for Codex,
+Claude Code, Pi, Oh My Pi, Hermes Agent, OpenCode, Gemini CLI, Cursor, GitHub
+Copilot, OpenClaw, Cline, Kiro CLI, Roo Code, Goose, and AiderDesk. List the
+canonical harness names with:
+
+```sh
+pane skill list
+```
+
+For example:
+
+```sh
+pane skill install claude
+pane skill install pi
+pane skill install omp
+pane skill install hermes
+```
+
+Destinations follow the global paths published by the skills.sh agent registry.
+For Codex, the skill is installed at `$CODEX_HOME/skills/pane` when `CODEX_HOME`
+is set, otherwise at `~/.codex/skills/pane`. Existing installations are
+preserved unless replacement is requested:
 
 ```sh
 pane skill install --force codex
@@ -48,7 +69,7 @@ pane skill path codex
 pane skill print
 ```
 
-Restart or begin a new Codex session after installing or replacing a skill so it is rediscovered.
+Restart or begin a new harness session after installing or replacing a skill so it is rediscovered.
 
 ## Produce a release
 

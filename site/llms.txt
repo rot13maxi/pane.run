@@ -13,7 +13,7 @@ Install the CLI on macOS or Linux:
 
     curl -fsSL https://pane.run/install.sh | sh
 
-Install the bundled Codex skill explicitly:
+Install the bundled skill explicitly (run `pane skill list` for supported harnesses):
 
     pane skill install codex
 
