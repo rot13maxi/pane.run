@@ -436,3 +436,44 @@ func TestRecipeRejectsInvalidThemeBeforeNetwork(t *testing.T) {
 		t.Fatalf("err=%v", err)
 	}
 }
+
+func TestSkillInstallCodex(t *testing.T) {
+	codexHome := t.TempDir()
+	t.Setenv("CODEX_HOME", codexHome)
+	var out bytes.Buffer
+	if err := run([]string{"skill", "install", "codex"}, &out, io.Discard); err != nil {
+		t.Fatal(err)
+	}
+	destination := filepath.Join(codexHome, "skills", "pane")
+	content, err := os.ReadFile(filepath.Join(destination, "SKILL.md"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(string(content), "name: pane") {
+		t.Fatalf("unexpected skill: %s", content)
+	}
+	if err := run([]string{"skill", "install", "codex"}, io.Discard, io.Discard); err == nil {
+		t.Fatal("second install should require --force")
+	}
+	if err := run([]string{"skill", "install", "--force", "codex"}, io.Discard, io.Discard); err != nil {
+		t.Fatal(err)
+	}
+}
+
+func TestSkillPrintAndPath(t *testing.T) {
+	t.Setenv("CODEX_HOME", "/tmp/codex-test")
+	var out bytes.Buffer
+	if err := run([]string{"skill", "print"}, &out, io.Discard); err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(out.String(), "name: pane") {
+		t.Fatalf("print=%q", out.String())
+	}
+	out.Reset()
+	if err := run([]string{"skill", "path", "codex"}, &out, io.Discard); err != nil {
+		t.Fatal(err)
+	}
+	if strings.TrimSpace(out.String()) != "/tmp/codex-test/skills/pane" {
+		t.Fatalf("path=%q", out.String())
+	}
+}

@@ -32,6 +32,7 @@ The vanilla CloudFormation template creates:
 - one API Gateway HTTP API with a Lambda proxy integration;
 - one CloudFront distribution and Origin Access Control for S3;
 - one CloudFront Function that preserves the viewer hostname for generated URLs;
+- one CloudFront Function that serves `index.md` when `/` explicitly requests `text/markdown`;
 - one response-header policy that sandboxes untrusted uploaded assets; and
 - one CloudWatch log group with 14-day retention.
 
@@ -56,7 +57,7 @@ PANE_CERTIFICATE_ARN=arn:aws:acm:us-east-1:123456789012:certificate/example \
 just deploy
 ```
 
-CloudFront requires its ACM certificate in `us-east-1`, regardless of the stack region. The recipe waits for certificate validation, deploys the stack, uploads `site/index.html` to the private content bucket, and prints the public URL.
+CloudFront requires its ACM certificate in `us-east-1`, regardless of the stack region. The recipe waits for certificate validation, deploys the stack, uploads `site/index.html`, `index.md`, `llms.txt`, and `install.sh` to the private content bucket, and prints the public URL.
 
 Inspect the stack outputs with:
 
@@ -67,7 +68,7 @@ just outputs
 Use the `PaneURL` output as the CLI server:
 
 ```sh
-pane pick --server https://example.cloudfront.net --title "Choose" Alpha Beta
+pane pick --server https://pane.run --title "Choose" Alpha Beta
 ```
 
 ## Storage and expiration

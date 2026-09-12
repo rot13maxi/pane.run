@@ -7,6 +7,7 @@ import (
 	"flag"
 	"fmt"
 	"io"
+	"io/fs"
 	"mime/multipart"
 	"net/http"
 	"net/url"
@@ -14,6 +15,8 @@ import (
 	"path/filepath"
 	"strconv"
 	"strings"
+
+	paneskill "github.com/agent-surface/agent-surface/skills/pane"
 	"time"
 
 	"github.com/agent-surface/agent-surface/internal/schema"
@@ -69,6 +72,8 @@ func run(args []string, stdout, stderr io.Writer) error {
 		return managed(http.MethodPost, "/close", args[1:], stdout)
 	case "delete":
 		return managed(http.MethodDelete, "", args[1:], stdout)
+	case "skill":
+		return skill(args[1:], stdout)
 	case "version":
 		fmt.Fprintf(stdout, "pane %s (commit %s, built %s)\n", version, commit, buildDate)
 		return nil
@@ -96,6 +101,9 @@ func usage(w io.Writer) {
   pane update <id> <spec.json> [--server URL] [--token TOKEN]
   pane close <id> [--server URL] [--token TOKEN]
   pane delete <id> [--server URL] [--token TOKEN]
+  pane skill install [--force] codex
+  pane skill path codex
+  pane skill print
 
 Run "pane <command> --help" for recipe and component options.
 Environment: PANE_SERVER, PANE_TOKEN, PANE_CONFIG_DIR`)
@@ -499,4 +507,114 @@ func env(key, fallback string) string {
 		return value
 	}
 	return fallback
+}
+
+func skill(args []string, out io.Writer) error {
+	if len(args) == 0 {
+		return errors.New("skill requires install, path, or print")
+	}
+	switch args[0] {
+	case "print":
+		if len(args) != 1 {
+			return errors.New("usage: pane skill print")
+		}
+		content, err := paneskill.Files.ReadFile("SKILL.md")
+		if err != nil {
+			return err
+		}
+		_, err = out.Write(content)
+		return err
+	case "path":
+		if len(args) != 2 || args[1] != "codex" {
+			return errors.New("usage: pane skill path codex")
+		}
+		destination, err := codexSkillPath()
+		if err != nil {
+			return err
+		}
+		fmt.Fprintln(out, destination)
+		return nil
+	case "install":
+		flags := flag.NewFlagSet("skill install", flag.ContinueOnError)
+		flags.SetOutput(out)
+		force := flags.Bool("force", false, "replace an existing Pane skill")
+		if err := flags.Parse(args[1:]); err != nil {
+			if errors.Is(err, flag.ErrHelp) {
+				return nil
+			}
+			return err
+		}
+		if flags.NArg() != 1 || flags.Arg(0) != "codex" {
+			return errors.New("usage: pane skill install [--force] codex")
+		}
+		destination, err := installCodexSkill(*force)
+		if err != nil {
+			return err
+		}
+		fmt.Fprintf(out, "Installed Pane skill for Codex at %s\n", destination)
+		return nil
+	default:
+		return fmt.Errorf("unknown skill command %q", args[0])
+	}
+}
+
+func codexSkillPath() (string, error) {
+	root := strings.TrimSpace(os.Getenv("CODEX_HOME"))
+	if root == "" {
+		home, err := os.UserHomeDir()
+		if err != nil {
+			return "", fmt.Errorf("find home directory: %w", err)
+		}
+		root = filepath.Join(home, ".codex")
+	}
+	return filepath.Join(root, "skills", "pane"), nil
+}
+
+func installCodexSkill(force bool) (string, error) {
+	destination, err := codexSkillPath()
+	if err != nil {
+		return "", err
+	}
+	if _, err := os.Stat(destination); err == nil && !force {
+		return "", fmt.Errorf("%s already exists; use --force to replace it", destination)
+	} else if err != nil && !errors.Is(err, os.ErrNotExist) {
+		return "", err
+	}
+	parent := filepath.Dir(destination)
+	if err := os.MkdirAll(parent, 0700); err != nil {
+		return "", err
+	}
+	temporary, err := os.MkdirTemp(parent, ".pane-skill-")
+	if err != nil {
+		return "", err
+	}
+	defer os.RemoveAll(temporary)
+	if err := fs.WalkDir(paneskill.Files, ".", func(path string, entry fs.DirEntry, walkErr error) error {
+		if walkErr != nil {
+			return walkErr
+		}
+		if path == "." || strings.HasSuffix(path, ".go") {
+			return nil
+		}
+		target := filepath.Join(temporary, filepath.FromSlash(path))
+		if entry.IsDir() {
+			return os.MkdirAll(target, 0700)
+		}
+		content, err := paneskill.Files.ReadFile(path)
+		if err != nil {
+			return err
+		}
+		return os.WriteFile(target, content, 0600)
+	}); err != nil {
+		return "", err
+	}
+	if force {
+		if err := os.RemoveAll(destination); err != nil {
+			return "", err
+		}
+	}
+	if err := os.Rename(temporary, destination); err != nil {
+		return "", err
+	}
+	return destination, nil
 }

@@ -176,6 +176,26 @@ Resources:
           return request;
         }
 
+  NegotiateLanding:
+    Type: AWS::CloudFront::Function
+    Properties:
+      Name: !Sub '${AWS::StackName}-negotiate-landing'
+      AutoPublish: true
+      FunctionConfig:
+        Comment: Serve Markdown when the client explicitly requests it
+        Runtime: cloudfront-js-2.0
+      FunctionCode: |
+        function handler(event) {
+          var request = event.request;
+          if (request.uri === '/') {
+            var accept = request.headers.accept;
+            request.uri = accept && accept.value.indexOf('text/markdown') !== -1
+              ? '/index.md'
+              : '/index.html';
+          }
+          return request;
+        }
+
   AssetResponseHeaders:
     Type: AWS::CloudFront::ResponseHeadersPolicy
     Properties:
@@ -222,6 +242,9 @@ Resources:
           CachedMethods: [GET, HEAD, OPTIONS]
           Compress: true
           CachePolicyId: 413f2c86-9e47-4b5c-9c9c-7800b2c3c08d
+          FunctionAssociations:
+            - EventType: viewer-request
+              FunctionARN: !GetAtt NegotiateLanding.FunctionARN
         CacheBehaviors:
           - PathPattern: '/a/*'
             TargetOriginId: objects

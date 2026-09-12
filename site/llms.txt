@@ -1,0 +1,25 @@
+# Pane
+
+> Pane is an ephemeral I/O substrate that lets agents present structured UI and receive structured human input without building an application.
+
+Homepage: https://pane.run/
+Markdown homepage: https://pane.run/index.md
+Source: https://github.com/rot13maxi/pane.run
+Protocol: https://github.com/rot13maxi/pane.run/blob/main/docs/protocol.md
+Specification: https://github.com/rot13maxi/pane.run/blob/main/docs/specification.md
+Skill: https://github.com/rot13maxi/pane.run/tree/main/skills/pane
+
+Install the CLI on macOS or Linux:
+
+    curl -fsSL https://pane.run/install.sh | sh
+
+Install the bundled Codex skill explicitly:
+
+    pane skill install codex
+
+Typical workflow:
+
+    pane pick --title "Choose" Alpha Beta
+    pane results <id>
+
+The create response includes a public URL and private management capability. Never expose the management token. Panes expire after 24 hours by default and accept a TTL from one minute through seven days. Controls update Pane state only; they do not trigger arbitrary external side effects.

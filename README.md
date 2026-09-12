@@ -11,6 +11,15 @@ This repository contains the V1 Go CLI and hosting service. See
 [`docs/product.md`](docs/product.md) for scope and [`docs/protocol.md`](docs/protocol.md)
 for the HTTP contract.
 
+## Install
+
+```sh
+curl -fsSL https://pane.run/install.sh | sh
+pane skill install codex
+```
+
+The installer downloads a checksum-verified binary from [GitHub Releases](https://github.com/rot13maxi/pane.run/releases). Skill installation is explicit and writes the bundled Pane skill to Codex's skill directory. See [`docs/installation.md`](docs/installation.md).
+
 ## Create a surface
 
 Start with a recipe. Recipes cover common agent/human interactions without making

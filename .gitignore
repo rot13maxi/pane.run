@@ -3,3 +3,4 @@
 /.surface/
 *.tmp
 /build/
+/dist/

@@ -8,6 +8,7 @@ data := env_var_or_default("DATA", "./data/surfaces.json")
 domain := env_var_or_default("PANE_DOMAIN", "pane.run")
 hosted_zone := env_var_or_default("PANE_HOSTED_ZONE_ID", "Z07208213M91D6YKP9C29")
 certificate := env_var_or_default("PANE_CERTIFICATE_ARN", "arn:aws:acm:us-east-1:439226424161:certificate/84fc23fc-4edf-42c0-b989-c3c7f71070a7")
+release_version := env_var_or_default("VERSION", "dev")
 
 _default:
     @just --list
@@ -17,6 +18,21 @@ build:
     go build -trimpath -o bin/pane ./cmd/pane
     CGO_ENABLED=0 GOOS=linux GOARCH=arm64 go build -trimpath -ldflags="-s -w" -o build/bootstrap ./cmd/pane-lambda
     go run ./cmd/package-lambda build/bootstrap build/lambda.zip
+
+release:
+    rm -rf dist
+    mkdir -p dist
+    tmp="$(mktemp -d)"; trap 'rm -rf "$tmp"' EXIT; \
+    commit="$(git rev-parse --short HEAD)"; build_date="$(date -u +%Y-%m-%dT%H:%M:%SZ)"; \
+    for target in darwin/amd64 darwin/arm64 linux/amd64 linux/arm64; do \
+      os="${target%/*}"; arch="${target#*/}"; \
+      CGO_ENABLED=0 GOOS="$os" GOARCH="$arch" go build -trimpath \
+        -ldflags="-s -w -X main.version={{release_version}} -X main.commit=$commit -X main.buildDate=$build_date" \
+        -o "$tmp/pane" ./cmd/pane; \
+      tar -C "$tmp" -czf "dist/pane-${os}-${arch}.tar.gz" pane; \
+    done; \
+    cp site/install.sh dist/install.sh; \
+    cd dist && sha256sum pane-*.tar.gz > checksums.txt
 
 run:
     go run ./cmd/paned -listen "{{listen}}" -base-url "{{base_url}}" -data "{{data}}"
@@ -58,6 +74,9 @@ deploy: build
       --no-fail-on-empty-changeset; \
     content_bucket="$(aws cloudformation describe-stacks --region "{{region}}" --stack-name "{{stack}}" --query 'Stacks[0].Outputs[?OutputKey==`BucketName`].OutputValue' --output text)"; \
     aws s3 cp site/index.html "s3://${content_bucket}/index.html" --content-type 'text/html; charset=utf-8' --cache-control no-store; \
+    aws s3 cp site/index.md "s3://${content_bucket}/index.md" --content-type 'text/markdown; charset=utf-8' --cache-control no-store; \
+    aws s3 cp site/llms.txt "s3://${content_bucket}/llms.txt" --content-type 'text/plain; charset=utf-8' --cache-control no-store; \
+    aws s3 cp site/install.sh "s3://${content_bucket}/install.sh" --content-type 'text/x-shellscript; charset=utf-8' --cache-control no-store; \
     aws cloudformation describe-stacks \
       --region "{{region}}" \
       --stack-name "{{stack}}" \
