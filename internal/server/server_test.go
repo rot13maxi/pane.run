@@ -157,3 +157,46 @@ func TestA2UIImportRejectsUnsupportedProtocol(t *testing.T) {
 		t.Fatalf("response=%d %#v", resp.StatusCode, body)
 	}
 }
+
+type memoryPages struct {
+	pages map[string][]byte
+}
+
+func (m *memoryPages) PutPage(s store.Surface, page []byte) error {
+	if m.pages == nil {
+		m.pages = make(map[string][]byte)
+	}
+	m.pages[s.PublicID] = append([]byte(nil), page...)
+	return nil
+}
+func (m *memoryPages) DeletePage(publicID string) error { delete(m.pages, publicID); return nil }
+
+func TestHostedServerPublishesCompletePage(t *testing.T) {
+	st, err := store.Open(filepath.Join(t.TempDir(), "db.json"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	pages := &memoryPages{}
+	ts := httptest.NewServer(NewHosted(st, "https://surface.example", nil, pages))
+	defer ts.Close()
+	spec := schema.Spec{Version: schema.Version, Title: "Hosted page", Components: []schema.Component{{ID: "name", Kind: schema.KindInputText, Label: "Name"}}}
+	resp, created := requestJSON(t, ts.Client(), http.MethodPost, ts.URL+"/api/v1/surfaces", spec, "")
+	if resp.StatusCode != http.StatusCreated {
+		t.Fatalf("create=%d %#v", resp.StatusCode, created)
+	}
+	publicID := created["public_id"].(string)
+	page := string(pages.pages[publicID])
+	for _, want := range []string{"<!doctype html>", "Hosted page", "/api/v1/public/" + publicID + "/state", "function hydrate(next)"} {
+		if !strings.Contains(page, want) {
+			t.Fatalf("published page missing %q", want)
+		}
+	}
+	id, token := created["id"].(string), created["management_token"].(string)
+	resp, _ = requestJSON(t, ts.Client(), http.MethodDelete, ts.URL+"/api/v1/surfaces/"+id, nil, token)
+	if resp.StatusCode != http.StatusNoContent {
+		t.Fatalf("delete=%d", resp.StatusCode)
+	}
+	if _, ok := pages.pages[publicID]; ok {
+		t.Fatal("published page was not deleted")
+	}
+}

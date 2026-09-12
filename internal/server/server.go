@@ -29,16 +29,41 @@ const (
 )
 
 type Handler struct {
-	store   *store.Store
+	store   SurfaceStore
 	baseURL string
 	log     *log.Logger
+	pages   PageStore
 }
 
-func New(st *store.Store, baseURL string, logger *log.Logger) http.Handler {
+type SurfaceStore interface {
+	Create(schema.Spec, time.Duration) (store.Surface, string, error)
+	CreateWithValues(schema.Spec, time.Duration, map[string]any) (store.Surface, string, error)
+	Get(string, string) (store.Surface, error)
+	Public(string) (store.Surface, error)
+	Update(string, string, schema.Spec) (store.Surface, error)
+	WriteState(string, uint64, map[string]any) (store.Surface, error)
+	Submit(string) (store.Surface, error)
+	Reset(string) (store.Surface, error)
+	Close(string, string) (store.Surface, error)
+	Delete(string, string) error
+	AddAsset(string, string, string, string, []byte) (store.Surface, store.Asset, error)
+	Asset(string, string) (store.Asset, string, error)
+}
+
+type PageStore interface {
+	PutPage(store.Surface, []byte) error
+	DeletePage(string) error
+}
+
+func New(st SurfaceStore, baseURL string, logger *log.Logger) http.Handler {
+	return NewHosted(st, baseURL, logger, nil)
+}
+
+func NewHosted(st SurfaceStore, baseURL string, logger *log.Logger, pages PageStore) http.Handler {
 	if logger == nil {
 		logger = log.Default()
 	}
-	return &Handler{store: st, baseURL: strings.TrimRight(baseURL, "/"), log: logger}
+	return &Handler{store: st, baseURL: strings.TrimRight(baseURL, "/"), log: logger, pages: pages}
 }
 
 func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
@@ -97,6 +122,11 @@ func (h *Handler) importA2UI(w http.ResponseWriter, r *http.Request) {
 		h.internal(w, err)
 		return
 	}
+	if err := h.publish(s); err != nil {
+		_ = h.store.Delete(s.ID, token)
+		h.internal(w, fmt.Errorf("publish imported page: %w", err))
+		return
+	}
 	writeJSON(w, 201, map[string]any{"id": s.ID, "public_id": s.PublicID, "url": h.baseURL + "/s/" + s.PublicID, "management_token": token, "created_at": s.CreatedAt, "expires_at": s.ExpiresAt, "import": map[string]any{"format": "a2ui", "protocol": "v0.9.1", "surface_id": result.SurfaceID, "warnings": result.Warnings}})
 }
 
@@ -120,6 +150,11 @@ func (h *Handler) create(w http.ResponseWriter, r *http.Request) {
 	s, token, err := h.store.Create(spec, ttl)
 	if err != nil {
 		h.internal(w, err)
+		return
+	}
+	if err := h.publish(s); err != nil {
+		_ = h.store.Delete(s.ID, token)
+		h.internal(w, fmt.Errorf("publish page: %w", err))
 		return
 	}
 	writeJSON(w, 201, map[string]any{"id": s.ID, "public_id": s.PublicID, "url": h.baseURL + "/s/" + s.PublicID, "management_token": token, "created_at": s.CreatedAt, "expires_at": s.ExpiresAt})
@@ -153,8 +188,19 @@ func (h *Handler) management(w http.ResponseWriter, r *http.Request) {
 				return
 			}
 			s, err = h.store.Update(id, token, spec)
+			if err == nil {
+				err = h.publish(s)
+			}
 		case http.MethodDelete:
+			current, getErr := h.store.Get(id, token)
+			if getErr != nil {
+				err = getErr
+				break
+			}
 			err = h.store.Delete(id, token)
+			if err == nil && h.pages != nil {
+				err = h.pages.DeletePage(current.PublicID)
+			}
 			if err == nil {
 				w.WriteHeader(http.StatusNoContent)
 				return
@@ -165,6 +211,9 @@ func (h *Handler) management(w http.ResponseWriter, r *http.Request) {
 		}
 	} else if len(parts) == 2 && parts[1] == "close" && r.Method == http.MethodPost {
 		s, err = h.store.Close(id, token)
+		if err == nil {
+			err = h.publish(s)
+		}
 	} else if len(parts) == 2 && parts[1] == "assets" && r.Method == http.MethodPost {
 		h.upload(w, r, id, token)
 		return
@@ -177,6 +226,18 @@ func (h *Handler) management(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	writeJSON(w, 200, managementView(s, h.baseURL))
+}
+
+func (h *Handler) publish(s store.Surface) error {
+	if h.pages == nil {
+		return nil
+	}
+	var page strings.Builder
+	root := "/api/v1/public/" + s.PublicID
+	if err := render.Render(&page, render.Page{Spec: s.Spec, Result: s.Result, PublicID: s.PublicID, StateURL: root + "/state", SubmitURL: root + "/submit", ResetURL: root + "/reset", ReadOnly: s.ClosedAt != nil}); err != nil {
+		return err
+	}
+	return h.pages.PutPage(s, []byte(page.String()))
 }
 
 func (h *Handler) upload(w http.ResponseWriter, r *http.Request, id, token string) {
