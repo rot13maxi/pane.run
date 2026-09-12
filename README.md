@@ -1,6 +1,9 @@
 # Agent Surface
 
-A lightweight, disposable web UI substrate for richer agent/human interaction.
+Surface lets agents create disposable user interfaces with a CLI. Instead of
+generating and hosting a web app, an agent says what interaction it needs—pick, rank,
+approve, enter, review—and gets back a URL. The human interacts with the page, the
+agent reads the results, and the surface disappears when it's no longer needed.
 
 This repository contains the V1 Go CLI and hosting service. See
 [`docs/product.md`](docs/product.md) for scope and [`docs/protocol.md`](docs/protocol.md)
@@ -61,6 +64,17 @@ surface create examples/gallery.json
 surface update <id> examples/gallery.json
 ```
 
+When the person has interacted with the page, bring their structured response back
+into the agent loop with:
+
+```sh
+surface results <id>
+```
+
+The command returns only stable result JSON: `status`, `revision`, `values`, and
+lifecycle timestamps. It uses the private receipt saved at creation, so the ID is
+normally all it needs.
+
 ## Local development
 
 Run the filesystem-backed service, then create a surface from another terminal:
@@ -72,17 +86,20 @@ just example
 
 Use `just test`, `just check`, and `just build` for automated checks and deployment artifacts. See [`docs/local-development.md`](docs/local-development.md) for configuration, persistence, example commands, and differences from AWS.
 
-## A2UI import
+## Optional A2UI compatibility
 
-A complete A2UI v0.9.1 Basic Catalog batch can be translated into a disposable
-Surface while keeping Surface V1 as the persisted format:
+Agent Surface uses its own small declarative format. When an existing producer already
+emits A2UI, the compatibility importer can translate a complete A2UI v0.9.1 Basic
+Catalog batch into a disposable Surface:
 
 ```sh
 surface create messages.jsonl --format a2ui --title "Review options"
 # or: producer | surface create - --format a2ui --title "Review options"
 ```
 
-See `docs/protocol.md` for the deliberately restricted supported subset.
+This is a one-way import path, not an alternative runtime or authoring recommendation.
+Surface V1 remains the persisted and update format. See `docs/protocol.md` for the
+deliberately restricted supported subset.
 
 ## Deploy to AWS
 

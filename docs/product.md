@@ -1,9 +1,9 @@
 # Agent Surface V1
 
-Agent Surface lets an agent materialize a temporary, purpose-built web interface when
-chat is the wrong medium. The agent submits a declarative specification and receives
-a responsive public URL. A person interacts with that page, the browser auto-saves
-values, and the agent polls for structured results.
+Surface lets agents create disposable user interfaces with a CLI. Instead of
+generating and hosting a web app, an agent says what interaction it needs—pick, rank,
+approve, enter, review—and gets back a URL. The human interacts with the page, the
+agent reads the results, and the surface disappears when it's no longer needed.
 
 ## Principles
 
@@ -31,7 +31,8 @@ values, and the agent polls for structured results.
    writes a local receipt so later commands need only the ID.
 3. A person opens the URL on desktop or mobile. Edits auto-save. Submit changes the
    status to `submitted` but does not lock the page.
-4. `surface read <id>` returns status, revision, timestamps, and values.
+4. `surface results <id>` returns status, revision, timestamps, and values without
+   mixing the response with the authoring specification.
 5. The agent may replace the specification with `surface update`; compatible values
    survive. It may close the surface to make it read-only or delete it early.
 
@@ -44,13 +45,14 @@ input or remembered last surface. Shell scripts should enable `pipefail` so an e
 failed command is not hidden by pipeline status. The service remains intentionally
 unaware of shell commands and does not become a general application builder.
 
-## Supported input formats
+## Optional compatibility import
 
-Surface V1 remains the canonical stored and update format. The creation API and CLI
-may also import a complete A2UI v0.9 or v0.9.1 Basic Catalog batch through a strict,
-non-executable translation boundary. Import does not turn the service into a streaming
-A2UI runtime: custom catalogs, agent callbacks, arbitrary functions, and external
-actions remain outside the product boundary.
+Surface V1 is the product's canonical creation, storage, and update format. A2UI is
+supported only as a convenience for existing producers: the creation API and CLI can
+translate a complete A2UI v0.9 or v0.9.1 Basic Catalog batch through a strict,
+non-executable boundary. It is not a second authoring model or a streaming A2UI
+runtime. Custom catalogs, agent callbacks, arbitrary functions, and external actions
+remain outside the product boundary.
 
 ## Initial primitives
 

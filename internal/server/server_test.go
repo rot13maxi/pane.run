@@ -85,6 +85,16 @@ func TestHTTPCreateRenderAndState(t *testing.T) {
 	if resp.StatusCode != 200 || read["result"] == nil {
 		t.Fatalf("read=%d %#v", resp.StatusCode, read)
 	}
+	resp, results := requestJSON(t, client, "GET", ts.URL+"/api/v1/surfaces/"+id+"/results", nil, token)
+	if resp.StatusCode != 200 || results["status"] != "active" || results["revision"] != float64(1) {
+		t.Fatalf("results=%d %#v", resp.StatusCode, results)
+	}
+	if _, exists := results["spec"]; exists {
+		t.Fatalf("results included specification: %#v", results)
+	}
+	if results["values"].(map[string]any)["choice"] != "a" {
+		t.Fatalf("results values=%#v", results["values"])
+	}
 }
 
 func TestAssetUpload(t *testing.T) {

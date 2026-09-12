@@ -1,7 +1,8 @@
-# A2UI import
+# Import existing A2UI
 
-Use this path only for an existing complete A2UI v0.9 or v0.9.1 batch. For a new
-surface, prefer recipes, incremental composition, or the native Surface specification.
+This is an optional, one-way compatibility path. Use it only for an existing complete
+A2UI v0.9 or v0.9.1 batch. For a new surface, prefer recipes, incremental composition,
+or the native Surface specification.
 
 ```sh
 surface create messages.jsonl --format a2ui --title "Review options"

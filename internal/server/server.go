@@ -214,6 +214,12 @@ func (h *Handler) management(w http.ResponseWriter, r *http.Request) {
 		if err == nil {
 			err = h.publish(s)
 		}
+	} else if len(parts) == 2 && parts[1] == "results" && r.Method == http.MethodGet {
+		s, err = h.store.Get(id, token)
+		if err == nil {
+			writeJSON(w, 200, s.Result)
+			return
+		}
 	} else if len(parts) == 2 && parts[1] == "assets" && r.Method == http.MethodPost {
 		h.upload(w, r, id, token)
 		return

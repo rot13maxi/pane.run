@@ -53,6 +53,8 @@ func run(args []string, stdout, stderr io.Writer) error {
 		return add(args[1:], os.Stdin, stdout)
 	case "read":
 		return managed(http.MethodGet, "", args[1:], stdout)
+	case "results":
+		return managed(http.MethodGet, "/results", args[1:], stdout)
 	case "update":
 		return update(args[1:], stdout)
 	case "close":
@@ -81,6 +83,7 @@ func usage(w io.Writer) {
   surface add <id> <kind> [options] [values...]
 
   surface create [document] [--format surface|a2ui] [--title TITLE] [--server URL] [--asset name=path]
+  surface results <id> [--server URL] [--token TOKEN]
   surface read <id> [--server URL] [--token TOKEN]
   surface update <id> <spec.json> [--server URL] [--token TOKEN]
   surface close <id> [--server URL] [--token TOKEN]

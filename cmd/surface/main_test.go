@@ -384,6 +384,38 @@ func TestCreateWithoutSpecSupportsTrailingTheme(t *testing.T) {
 	}
 }
 
+func TestResultsReturnsOnlyAgentFriendlyResult(t *testing.T) {
+	t.Setenv("SURFACE_CONFIG_DIR", t.TempDir())
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodGet || r.URL.Path != "/api/v1/surfaces/s-results/results" {
+			t.Fatalf("request %s %s", r.Method, r.URL.Path)
+		}
+		if r.Header.Get("Authorization") != "Bearer secret" {
+			t.Fatal("missing management token")
+		}
+		w.Header().Set("Content-Type", "application/json")
+		io.WriteString(w, `{"status":"submitted","revision":3,"values":{"decision":"approve"},"created_at":"2026-09-12T12:00:00Z","updated_at":"2026-09-12T12:05:00Z","submitted_at":"2026-09-12T12:05:00Z","expires_at":"2026-09-13T12:00:00Z"}`)
+	}))
+	defer server.Close()
+	if err := saveReceipt(receipt{ID: "s-results", Server: server.URL, ManagementToken: "secret"}); err != nil {
+		t.Fatal(err)
+	}
+	var out bytes.Buffer
+	if err := run([]string{"results", "s-results"}, &out, io.Discard); err != nil {
+		t.Fatal(err)
+	}
+	var got map[string]any
+	if err := json.Unmarshal(out.Bytes(), &got); err != nil {
+		t.Fatal(err)
+	}
+	if got["status"] != "submitted" || got["revision"] != float64(3) || got["values"].(map[string]any)["decision"] != "approve" {
+		t.Fatalf("results=%#v", got)
+	}
+	if _, exists := got["spec"]; exists {
+		t.Fatalf("results leaked authoring data: %#v", got)
+	}
+}
+
 func TestRecipeRejectsInvalidThemeBeforeNetwork(t *testing.T) {
 	err := recipe("pick", []string{"One", "--theme", "sepia", "--server", "http://should-not-connect.invalid"}, io.Discard)
 	if err == nil || !strings.Contains(err.Error(), "color_scheme") {
