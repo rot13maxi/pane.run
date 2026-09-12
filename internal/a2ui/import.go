@@ -20,6 +20,11 @@ const (
 	BasicCatalog  = "https://a2ui.org/specification/v0_9/catalogs/basic/catalog.json"
 	MaxMessages   = 256
 	MaxComponents = schema.MaxComponents
+
+	// A component definition can reference other definitions more than once. Keep
+	// total graph traversal bounded even when those references produce no visible
+	// components (for example, a highly shared graph of Buttons).
+	maxExpansionWork = MaxComponents * MaxComponents
 )
 
 type Options struct {
@@ -152,7 +157,7 @@ func Import(data []byte, opts Options) (Result, error) {
 	if _, ok := components["root"]; !ok {
 		return Result{}, errors.New("component with id root is required")
 	}
-	c := compiler{all: components, ids: map[string]string{}, used: map[string]bool{}, model: model}
+	c := compiler{all: components, compiled: map[string][]schema.Component{}, ids: map[string]string{}, used: map[string]bool{}, model: model}
 	translated, err := c.walk("root", map[string]bool{})
 	if err != nil {
 		return Result{}, err
@@ -232,18 +237,27 @@ func sameSurface(index int, created *createSurface, id string) error {
 }
 
 type compiler struct {
-	all      map[string]map[string]any
-	ids      map[string]string
-	used     map[string]bool
-	model    any
-	values   map[string]any
-	actions  schema.Actions
-	warnings []string
+	all           map[string]map[string]any
+	compiled      map[string][]schema.Component
+	expansionWork int
+	ids           map[string]string
+	used          map[string]bool
+	model         any
+	values        map[string]any
+	actions       schema.Actions
+	warnings      []string
 }
 
-func (c *compiler) walk(id string, stack map[string]bool) ([]schema.Component, error) {
+func (c *compiler) walk(id string, stack map[string]bool) (out []schema.Component, err error) {
+	c.expansionWork++
+	if c.expansionWork > maxExpansionWork {
+		return nil, fmt.Errorf("A2UI component expansion exceeds the safe work limit of %d references", maxExpansionWork)
+	}
 	if stack[id] {
 		return nil, fmt.Errorf("component graph contains a cycle at %q", id)
+	}
+	if compiled, ok := c.compiled[id]; ok {
+		return compiled, nil
 	}
 	raw, ok := c.all[id]
 	if !ok {
@@ -254,7 +268,15 @@ func (c *compiler) walk(id string, stack map[string]bool) ([]schema.Component, e
 		return nil, fmt.Errorf("component %q omits component type", id)
 	}
 	stack[id] = true
-	defer delete(stack, id)
+	defer func() {
+		delete(stack, id)
+		if err == nil {
+			if c.compiled == nil {
+				c.compiled = map[string][]schema.Component{}
+			}
+			c.compiled[id] = out
+		}
+	}()
 	switch kind {
 	case "Column", "Row", "Card":
 		children, err := childIDs(raw)
@@ -264,15 +286,18 @@ func (c *compiler) walk(id string, stack map[string]bool) ([]schema.Component, e
 		if kind == "Row" {
 			c.warn(fmt.Sprintf("component %q: Row layout was flattened", id))
 		}
-		var out []schema.Component
+		var translated []schema.Component
 		for _, child := range children {
 			v, err := c.walk(child, stack)
 			if err != nil {
 				return nil, err
 			}
-			out = append(out, v...)
+			if len(v) > MaxComponents-len(translated) {
+				return nil, fmt.Errorf("translated A2UI surface exceeds %d components", MaxComponents)
+			}
+			translated = append(translated, v...)
 		}
-		return out, nil
+		return translated, nil
 	case "Text":
 		text, err := c.dynamicString(raw["text"])
 		if err != nil {

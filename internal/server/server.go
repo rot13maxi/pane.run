@@ -197,9 +197,14 @@ func (h *Handler) management(w http.ResponseWriter, r *http.Request) {
 				err = getErr
 				break
 			}
-			err = h.store.Delete(id, token)
-			if err == nil && h.pages != nil {
+			// Hosted content must be removed before its authorization record. If
+			// object deletion fails, retaining the record keeps this operation
+			// authenticated and safely retryable with the same capability.
+			if h.pages != nil {
 				err = h.pages.DeletePage(current.PublicID)
+			}
+			if err == nil {
+				err = h.store.Delete(id, token)
 			}
 			if err == nil {
 				w.WriteHeader(http.StatusNoContent)

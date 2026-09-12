@@ -12,6 +12,9 @@ shortest authoring path in this order:
 2. `pane create` followed by a few `pane add` commands for a custom combination.
 3. A complete declarative JSON document as an escape hatch.
 
+Use `pane help`, `pane <recipe> --help`, or `pane add --help` when command syntax is
+uncertain. Treat the installed CLI's help as authoritative for available flags.
+
 Choose the path by the requested validation semantics, not just by visual similarity:
 
 - Use `pick` for one choice from a fixed set, including discrete scales such as 1–5.

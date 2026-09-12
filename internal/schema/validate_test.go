@@ -149,6 +149,89 @@ func TestNestedSectionIDs(t *testing.T) {
 	}
 }
 
+func TestRejectComponentsOutsideSections(t *testing.T) {
+	spec := Spec{Version: Version, Title: "Hidden input", Components: []Component{{
+		Kind: KindText, Content: "Visible", Components: []Component{{
+			ID: "hidden", Kind: KindCheckbox, Label: "Hidden",
+		}},
+	}}}
+	err := ValidateSpec(&spec)
+	var validation *ValidationError
+	if !errors.As(err, &validation) || validation.Path != "components[0].components" {
+		t.Fatalf("ValidateSpec() error = %#v, want components field error", err)
+	}
+	if err := ValidateValues(spec, map[string]any{"hidden": true}); err == nil {
+		t.Fatal("hidden interactive child was accepted as state")
+	}
+}
+
+func TestNestedComponentLimitsCannotBeBypassed(t *testing.T) {
+	t.Run("count", func(t *testing.T) {
+		children := make([]Component, MaxComponents)
+		for i := range children {
+			children[i] = Component{Kind: KindDivider}
+		}
+		spec := Spec{Version: Version, Title: "Too many", Components: []Component{{
+			Kind: KindSection, Components: children,
+		}}}
+		err := ValidateSpec(&spec)
+		var validation *ValidationError
+		if !errors.As(err, &validation) || validation.Path != "components" {
+			t.Fatalf("ValidateSpec() error = %#v, want component count error", err)
+		}
+	})
+
+	t.Run("depth", func(t *testing.T) {
+		tooDeep := Component{Kind: KindText, Content: "Too deep"}
+		for i := 0; i < MaxNestingDepth; i++ {
+			tooDeep = Component{Kind: KindSection, Components: []Component{tooDeep}}
+		}
+		spec := Spec{Version: Version, Title: "Too deep", Components: []Component{tooDeep}}
+		err := ValidateSpec(&spec)
+		var validation *ValidationError
+		if !errors.As(err, &validation) || !strings.HasSuffix(validation.Path, ".components") {
+			t.Fatalf("ValidateSpec() error = %#v, want nesting depth error", err)
+		}
+	})
+}
+
+func TestValidNestedSectionsAtMaximumDepth(t *testing.T) {
+	component := Component{ID: "inside", Kind: KindCheckbox, Label: "Inside"}
+	for i := 1; i < MaxNestingDepth; i++ {
+		component = Component{Kind: KindSection, Label: "Section", Components: []Component{component}}
+	}
+	spec := Spec{Version: Version, Title: "Nested", Components: []Component{component}}
+	if err := ValidateSpec(&spec); err != nil {
+		t.Fatalf("ValidateSpec() error = %v", err)
+	}
+	if err := ValidateValues(spec, map[string]any{"inside": true}); err != nil {
+		t.Fatalf("ValidateValues() error = %v", err)
+	}
+}
+
+func TestRejectFieldsFromOtherComponentKinds(t *testing.T) {
+	tests := []struct {
+		name      string
+		component Component
+		path      string
+	}{
+		{name: "options", component: Component{Kind: KindText, Content: "Text", Options: []Option{{Value: "a", Label: "A"}}}, path: "components[0].options"},
+		{name: "items", component: Component{Kind: KindDivider, Items: []Item{}}, path: "components[0].items"},
+		{name: "numeric bound", component: Component{Kind: KindCheckbox, ID: "check", Label: "Check", Min: ptr(0.0)}, path: "components[0].min"},
+		{name: "comparison", component: Component{Kind: KindText, Content: "Text", Rows: []ComparisonRow{}}, path: "components[0].rows"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			spec := Spec{Version: Version, Title: "Invalid union", Components: []Component{tt.component}}
+			err := ValidateSpec(&spec)
+			var validation *ValidationError
+			if !errors.As(err, &validation) || validation.Path != tt.path {
+				t.Fatalf("ValidateSpec() error = %#v, want path %q", err, tt.path)
+			}
+		})
+	}
+}
+
 func TestColorSchemeValidationAndDefault(t *testing.T) {
 	if got := (Spec{}).EffectiveColorScheme(); got != "system" {
 		t.Fatalf("EffectiveColorScheme() = %q, want system", got)

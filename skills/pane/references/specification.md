@@ -24,7 +24,18 @@ no implicit stdin or remembered last surface. Add prints a compact envelope cont
   "description": "Pick the designs you prefer.",
   "ttl_seconds": 86400,
   "presentation": { "tone": "professional", "density": "comfortable", "color_scheme": "dark" },
-  "components": [],
+  "components": [
+    {
+      "kind": "select",
+      "id": "direction",
+      "label": "Direction",
+      "required": true,
+      "options": [
+        { "value": "editorial", "label": "Editorial" },
+        { "value": "minimal", "label": "Minimal" }
+      ]
+    }
+  ],
   "actions": { "submit": { "label": "Done" }, "reset": { "label": "Reset" } }
 }
 ```
@@ -58,15 +69,17 @@ otherwise omit the flag. These are semantic hints, not styling or layout control
 | `comparison` | `label`, `columns`, `rows` | — |
 
 Every component has `kind`. Interactive components require a unique stable `id` and
-`label`; they may have `help` and `required`. Selection bounds are `min_selections`
-and `max_selections`. Options have `value`, `label`, and optional `description`.
-Items add optional `image`; gallery items require one. Values must be unique.
+`label`; IDs must match `[A-Za-z][A-Za-z0-9_-]{0,63}`. Interactive components may
+also have `help` and `required`. Selection bounds are `min_selections` and
+`max_selections`. Options have `value`, `label`, and optional `description`; items
+add optional `image`, and gallery items require one. Each options or items list must
+contain 1–100 entries with unique values.
 
-Sections are semantic groups, may nest four levels, and do not control layout. A
-surface supports at most 200 components and 200 state keys. Partial autosaves validate
-present values without enforcing `required`; submission enforces required values.
-Definition updates preserve a value only when its stable ID, JSON shape, constraints,
-and allowed choices remain compatible.
+`components` must be non-empty. Sections are semantic groups, may nest four levels,
+and do not control layout. A surface supports at most 200 components and 200 state
+keys. Partial autosaves validate present values without enforcing `required`;
+submission enforces required values. Definition updates preserve a value only when
+its stable ID, JSON shape, constraints, and allowed choices remain compatible.
 
 ## Raw JSON workflow
 

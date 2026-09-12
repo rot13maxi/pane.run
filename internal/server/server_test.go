@@ -3,6 +3,7 @@ package server
 import (
 	"bytes"
 	"encoding/json"
+	"errors"
 	"io"
 	"net/http"
 	"net/http/httptest"
@@ -169,7 +170,8 @@ func TestA2UIImportRejectsUnsupportedProtocol(t *testing.T) {
 }
 
 type memoryPages struct {
-	pages map[string][]byte
+	pages     map[string][]byte
+	deleteErr error
 }
 
 func (m *memoryPages) PutPage(s store.Surface, page []byte) error {
@@ -179,7 +181,13 @@ func (m *memoryPages) PutPage(s store.Surface, page []byte) error {
 	m.pages[s.PublicID] = append([]byte(nil), page...)
 	return nil
 }
-func (m *memoryPages) DeletePage(publicID string) error { delete(m.pages, publicID); return nil }
+func (m *memoryPages) DeletePage(publicID string) error {
+	if m.deleteErr != nil {
+		return m.deleteErr
+	}
+	delete(m.pages, publicID)
+	return nil
+}
 
 func TestHostedServerPublishesCompletePage(t *testing.T) {
 	st, err := store.Open(filepath.Join(t.TempDir(), "db.json"))
@@ -208,5 +216,41 @@ func TestHostedServerPublishesCompletePage(t *testing.T) {
 	}
 	if _, ok := pages.pages[publicID]; ok {
 		t.Fatal("published page was not deleted")
+	}
+}
+
+func TestHostedDeleteRetainsManagementRecordWhenPageDeletionFails(t *testing.T) {
+	st, err := store.Open(filepath.Join(t.TempDir(), "db.json"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	pages := &memoryPages{}
+	ts := httptest.NewServer(NewHosted(st, "https://surface.example", nil, pages))
+	defer ts.Close()
+	spec := schema.Spec{Version: schema.Version, Title: "Retry deletion", Components: []schema.Component{{Kind: schema.KindText, Content: "Content"}}}
+	resp, created := requestJSON(t, ts.Client(), http.MethodPost, ts.URL+"/api/v1/surfaces", spec, "")
+	if resp.StatusCode != http.StatusCreated {
+		t.Fatalf("create=%d %#v", resp.StatusCode, created)
+	}
+	id, token := created["id"].(string), created["management_token"].(string)
+	publicID := created["public_id"].(string)
+	pages.deleteErr = errors.New("temporary object-store failure")
+
+	resp, _ = requestJSON(t, ts.Client(), http.MethodDelete, ts.URL+"/api/v1/surfaces/"+id, nil, token)
+	if resp.StatusCode != http.StatusInternalServerError {
+		t.Fatalf("first delete=%d, want 500", resp.StatusCode)
+	}
+	if _, ok := pages.pages[publicID]; !ok {
+		t.Fatal("page removed despite page-store failure")
+	}
+	resp, _ = requestJSON(t, ts.Client(), http.MethodGet, ts.URL+"/api/v1/surfaces/"+id, nil, token)
+	if resp.StatusCode != http.StatusOK {
+		t.Fatalf("management record lost after failed delete: status=%d", resp.StatusCode)
+	}
+
+	pages.deleteErr = nil
+	resp, _ = requestJSON(t, ts.Client(), http.MethodDelete, ts.URL+"/api/v1/surfaces/"+id, nil, token)
+	if resp.StatusCode != http.StatusNoContent {
+		t.Fatalf("retry delete=%d, want 204", resp.StatusCode)
 	}
 }

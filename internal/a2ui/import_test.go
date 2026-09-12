@@ -1,6 +1,8 @@
 package a2ui
 
 import (
+	"encoding/json"
+	"fmt"
 	"strings"
 	"testing"
 
@@ -54,5 +56,78 @@ func TestImportRejectsUnsafeOrIncompleteA2UI(t *testing.T) {
 				t.Fatalf("err=%v, want %q", err, tt.want)
 			}
 		})
+	}
+}
+
+func TestImportRejectsExponentialSharedComponentExpansion(t *testing.T) {
+	components := make([]map[string]any, 0, 22)
+	for i := 0; i < 20; i++ {
+		child := fmt.Sprintf("node-%d", i+1)
+		components = append(components, map[string]any{
+			"id":        fmt.Sprintf("node-%d", i),
+			"component": "Column",
+			"children":  []string{child, child},
+		})
+	}
+	components[0]["id"] = "root"
+	components[0]["children"] = []string{"node-1", "node-1"}
+	components = append(components, map[string]any{"id": "node-20", "component": "Text", "text": "leaf"})
+
+	batch, err := json.Marshal([]any{
+		map[string]any{"version": Version, "createSurface": map[string]any{"surfaceId": "s", "catalogId": BasicCatalog}},
+		map[string]any{"version": Version, "updateComponents": map[string]any{"surfaceId": "s", "components": components}},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	_, err = Import(batch, Options{})
+	if err == nil || !strings.Contains(err.Error(), "translated A2UI surface exceeds 200 components") {
+		t.Fatalf("err=%v, want expanded component limit", err)
+	}
+}
+
+func TestCompilerMemoizesSharedZeroOutputSubgraphs(t *testing.T) {
+	all := make(map[string]map[string]any, MaxComponents)
+	for i := 0; i < MaxComponents-1; i++ {
+		id := fmt.Sprintf("node-%d", i)
+		child := fmt.Sprintf("node-%d", i+1)
+		all[id] = map[string]any{"component": "Column", "children": []any{child, child}}
+	}
+	all[fmt.Sprintf("node-%d", MaxComponents-1)] = map[string]any{
+		"component": "Button",
+		"action":    map[string]any{"event": map[string]any{"name": "submit"}},
+	}
+	c := compiler{all: all, compiled: map[string][]schema.Component{}, ids: map[string]string{}, used: map[string]bool{}}
+
+	got, err := c.walk("node-0", map[string]bool{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(got) != 0 {
+		t.Fatalf("components=%d, want zero", len(got))
+	}
+	if c.expansionWork > 2*MaxComponents {
+		t.Fatalf("shared graph required %d expansion steps, want at most %d", c.expansionWork, 2*MaxComponents)
+	}
+}
+
+func TestCompilerBoundsReferenceWork(t *testing.T) {
+	children := make([]any, maxExpansionWork)
+	for i := range children {
+		children[i] = "button"
+	}
+	c := compiler{
+		all: map[string]map[string]any{
+			"root":   {"component": "Column", "children": children},
+			"button": {"component": "Button", "action": map[string]any{"event": map[string]any{"name": "submit"}}},
+		},
+		compiled: map[string][]schema.Component{},
+		ids:      map[string]string{},
+		used:     map[string]bool{},
+	}
+
+	_, err := c.walk("root", map[string]bool{})
+	if err == nil || !strings.Contains(err.Error(), "safe work limit") {
+		t.Fatalf("err=%v, want safe work limit", err)
 	}
 }

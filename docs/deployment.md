@@ -75,6 +75,10 @@ pane pick --server https://pane.run --title "Choose" Alpha Beta
 
 DynamoDB enforces `expires_at` on every application read and write; its TTL feature performs eventual record cleanup. Generated pages fetch authoritative state when loaded, disable interaction on `410 Gone`, and hydrate current saved values. S3 removes page and asset objects after eight days, just beyond the maximum seven-day surface TTL. Consequently, an expired page's inert HTML may remain retrievable until lifecycle cleanup, while its state and interactions are unavailable immediately at expiry.
 
+Explicit deletion is stronger than expiry: Pane removes the hosted page and assets
+before deleting their DynamoDB records. If object cleanup fails, the management
+record remains so the same authenticated delete request can be retried safely.
+
 CloudFront caching is disabled for both generated pages and the API. The S3 bucket is private and can only be read through this stack's distribution.
 
 ## Architecture notes

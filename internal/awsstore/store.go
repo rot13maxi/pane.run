@@ -294,14 +294,50 @@ func (s *Store) Delete(id, capability string) error {
 	if e != nil {
 		return e
 	}
-	_, e = s.db.TransactWriteItems(context.Background(), &dynamodb.TransactWriteItemsInput{TransactItems: []types.TransactWriteItem{{Delete: &types.Delete{TableName: aws.String(s.table), Key: surfaceKey(id)}}, {Delete: &types.Delete{TableName: aws.String(s.table), Key: publicKey(v.PublicID)}}}})
-	if e != nil {
-		return e
-	}
+	ctx := context.Background()
 	for _, a := range v.Assets {
-		_, _ = s.objects.DeleteObject(context.Background(), &s3.DeleteObjectInput{Bucket: aws.String(s.bucket), Key: aws.String("a/" + v.PublicID + "/" + a.ID)})
+		key := "a/" + v.PublicID + "/" + a.ID
+		if _, e = s.objects.DeleteObject(ctx, &s3.DeleteObjectInput{Bucket: aws.String(s.bucket), Key: aws.String(key)}); e != nil {
+			return fmt.Errorf("delete asset %q: %w", a.ID, e)
+		}
 	}
-	return nil
+	_, e = s.db.TransactWriteItems(ctx, deleteRecordsInput(s.table, v))
+	if isDeleteConflict(e) {
+		return localstore.ErrConflict
+	}
+	return e
+}
+
+func deleteRecordsInput(table string, v localstore.Surface) *dynamodb.TransactWriteItemsInput {
+	return &dynamodb.TransactWriteItemsInput{TransactItems: []types.TransactWriteItem{
+		{Delete: &types.Delete{
+			TableName:                 aws.String(table),
+			Key:                       surfaceKey(v.ID),
+			ConditionExpression:       aws.String("revision = :revision"),
+			ExpressionAttributeValues: map[string]types.AttributeValue{":revision": &types.AttributeValueMemberN{Value: fmt.Sprint(v.Result.Revision)}},
+		}},
+		{Delete: &types.Delete{TableName: aws.String(table), Key: publicKey(v.PublicID)}},
+	}}
+}
+
+func isDeleteConflict(err error) bool {
+	if err == nil {
+		return false
+	}
+	var transactionConflict *types.TransactionConflictException
+	if errors.As(err, &transactionConflict) {
+		return true
+	}
+	var canceled *types.TransactionCanceledException
+	if !errors.As(err, &canceled) {
+		return false
+	}
+	for _, reason := range canceled.CancellationReasons {
+		if aws.ToString(reason.Code) == "ConditionalCheckFailed" {
+			return true
+		}
+	}
+	return false
 }
 func (s *Store) AddAsset(id, capability, filename, contentType string, data []byte) (localstore.Surface, localstore.Asset, error) {
 	v, e := s.Get(id, capability)

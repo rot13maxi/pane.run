@@ -101,6 +101,9 @@ func validateComponent(c *Component, path string, depth int, seen map[string]str
 	if !isKnownKind(c.Kind) {
 		return invalid(path+".kind", "unknown component kind %q", c.Kind)
 	}
+	if err := validateComponentFields(c, path); err != nil {
+		return err
+	}
 	interactive := IsInteractive(c.Kind)
 	if interactive {
 		if !idPattern.MatchString(c.ID) {
@@ -191,6 +194,63 @@ func validateComponent(c *Component, path string, depth int, seen map[string]str
 		}
 	}
 	return nil
+}
+
+func validateComponentFields(c *Component, path string) error {
+	type fieldRule struct {
+		name    string
+		present bool
+		allowed []ComponentKind
+	}
+	rules := []fieldRule{
+		{name: "label", present: c.Label != "", allowed: []ComponentKind{
+			KindImage, KindLink, KindSection, KindInputText, KindTextarea, KindNumber,
+			KindCheckbox, KindToggle, KindSelect, KindMultiSelect, KindChecklist,
+			KindGallery, KindRanking, KindApproval, KindComparison,
+		}},
+		{name: "content", present: c.Content != "", allowed: []ComponentKind{KindHeading, KindText, KindImage}},
+		{name: "help", present: c.Help != "", allowed: []ComponentKind{
+			KindSection, KindInputText, KindTextarea, KindNumber, KindCheckbox, KindToggle,
+			KindSelect, KindMultiSelect, KindChecklist, KindGallery, KindRanking,
+			KindApproval, KindComparison,
+		}},
+		{name: "url", present: c.URL != "", allowed: []ComponentKind{KindImage, KindLink}},
+		{name: "asset", present: c.Asset != "", allowed: []ComponentKind{KindImage}},
+		{name: "alt", present: c.Alt != "", allowed: []ComponentKind{KindImage}},
+		{name: "level", present: c.Level != 0, allowed: []ComponentKind{KindHeading}},
+		{name: "required", present: c.Required, allowed: []ComponentKind{
+			KindInputText, KindTextarea, KindNumber, KindCheckbox, KindToggle, KindSelect,
+			KindMultiSelect, KindChecklist, KindGallery, KindRanking, KindApproval,
+		}},
+		{name: "placeholder", present: c.Placeholder != "", allowed: []ComponentKind{KindInputText, KindTextarea, KindNumber}},
+		{name: "min", present: c.Min != nil, allowed: []ComponentKind{KindNumber}},
+		{name: "max", present: c.Max != nil, allowed: []ComponentKind{KindNumber}},
+		{name: "step", present: c.Step != nil, allowed: []ComponentKind{KindNumber}},
+		{name: "min_length", present: c.MinLength != nil, allowed: []ComponentKind{KindInputText, KindTextarea}},
+		{name: "max_length", present: c.MaxLength != nil, allowed: []ComponentKind{KindInputText, KindTextarea}},
+		{name: "min_selections", present: c.MinSelections != nil, allowed: []ComponentKind{KindMultiSelect, KindChecklist, KindGallery}},
+		{name: "max_selections", present: c.MaxSelections != nil, allowed: []ComponentKind{KindMultiSelect, KindChecklist, KindGallery}},
+		{name: "options", present: c.Options != nil, allowed: []ComponentKind{KindSelect, KindMultiSelect}},
+		{name: "items", present: c.Items != nil, allowed: []ComponentKind{KindChecklist, KindGallery, KindRanking}},
+		{name: "components", present: c.Components != nil, allowed: []ComponentKind{KindSection}},
+		{name: "columns", present: c.Columns != nil, allowed: []ComponentKind{KindComparison}},
+		{name: "rows", present: c.Rows != nil, allowed: []ComponentKind{KindComparison}},
+	}
+	for _, rule := range rules {
+		if rule.present && !componentKindAllowed(c.Kind, rule.allowed) {
+			return invalid(path+"."+rule.name, "is not allowed for component kind %q", c.Kind)
+		}
+	}
+	return nil
+}
+
+func componentKindAllowed(kind ComponentKind, allowed []ComponentKind) bool {
+	for _, candidate := range allowed {
+		if kind == candidate {
+			return true
+		}
+	}
+	return false
 }
 
 func validateOptions(path string, options []Option) error {
@@ -319,7 +379,9 @@ func interactiveComponents(s Spec) map[string]Component {
 			if IsInteractive(component.Kind) {
 				result[component.ID] = component
 			}
-			walk(component.Components)
+			if component.Kind == KindSection {
+				walk(component.Components)
+			}
 		}
 	}
 	walk(s.Components)
