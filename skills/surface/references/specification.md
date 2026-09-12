@@ -72,11 +72,15 @@ and allowed choices remain compatible.
 
 ```sh
 surface create spec.json
-surface read <id>
+surface results <id>
 surface update <id> spec.json
 surface close <id>
 surface delete <id>
 ```
+
+`surface results` returns the shallow agent-facing result object. Use `surface read`
+only when inspecting the full stored specification and management document is
+necessary.
 
 To upload local media, reference `asset:<name>` in the JSON and bind it during create:
 
