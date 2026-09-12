@@ -2,6 +2,7 @@ package schema
 
 import (
 	"errors"
+	"strings"
 	"testing"
 )
 
@@ -145,5 +146,19 @@ func TestNestedSectionIDs(t *testing.T) {
 	}
 	if err := ValidateValues(spec, map[string]any{"inside": true}); err != nil {
 		t.Fatal(err)
+	}
+}
+
+func TestColorSchemeValidationAndDefault(t *testing.T) {
+	if got := (Spec{}).EffectiveColorScheme(); got != "system" {
+		t.Fatalf("EffectiveColorScheme() = %q, want system", got)
+	}
+	if got := (Spec{Presentation: Presentation{ColorScheme: "dark"}}).EffectiveColorScheme(); got != "dark" {
+		t.Fatalf("EffectiveColorScheme() = %q, want dark", got)
+	}
+	spec := validSpec()
+	spec.Presentation.ColorScheme = "sepia"
+	if err := ValidateSpec(&spec); err == nil || !strings.Contains(err.Error(), "presentation.color_scheme") {
+		t.Fatalf("ValidateSpec() error = %v, want color scheme error", err)
 	}
 }

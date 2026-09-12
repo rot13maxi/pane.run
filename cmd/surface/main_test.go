@@ -88,11 +88,11 @@ func TestPickRecipeBuildsExpectedSpec(t *testing.T) {
 	defer server.Close()
 	t.Setenv("SURFACE_CONFIG_DIR", t.TempDir())
 	var out bytes.Buffer
-	err := recipe("pick", []string{"First choice", "Second choice", "--title", "Pick one", "--server", server.URL}, &out)
+	err := recipe("pick", []string{"First choice", "Second choice", "--title", "Pick one", "--server", server.URL, "--theme", "dark"}, &out)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if got.Title != "Pick one" || len(got.Components) != 1 || got.Components[0].Kind != schema.KindSelect || !got.Components[0].Required {
+	if got.Title != "Pick one" || got.Presentation.ColorScheme != "dark" || len(got.Components) != 1 || got.Components[0].Kind != schema.KindSelect || !got.Components[0].Required {
 		t.Fatalf("unexpected spec: %#v", got)
 	}
 	if len(got.Components[0].Options) != 2 || got.Components[0].Options[0].Label != "First choice" {
@@ -362,5 +362,31 @@ func TestCreateA2UIUsesImportEndpoint(t *testing.T) {
 	}
 	if path != "/api/v1/imports/a2ui?protocol=v0.9.1&title=Review&ttl_seconds=600" || contentType != "application/a2ui+json" {
 		t.Fatalf("request path=%q content-type=%q", path, contentType)
+	}
+}
+
+func TestCreateWithoutSpecSupportsTrailingTheme(t *testing.T) {
+	var got schema.Spec
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if err := json.NewDecoder(r.Body).Decode(&got); err != nil {
+			t.Fatal(err)
+		}
+		w.Header().Set("Content-Type", "application/json")
+		io.WriteString(w, `{"id":"theme-create","url":"https://example/s/theme","management_token":"secret"}`)
+	}))
+	defer server.Close()
+	t.Setenv("SURFACE_CONFIG_DIR", t.TempDir())
+	if err := create([]string{"--title", "Dark review", "--server", server.URL, "--theme", "dark"}, io.Discard); err != nil {
+		t.Fatal(err)
+	}
+	if got.Title != "Dark review" || got.Presentation.ColorScheme != "dark" {
+		t.Fatalf("spec=%#v", got)
+	}
+}
+
+func TestRecipeRejectsInvalidThemeBeforeNetwork(t *testing.T) {
+	err := recipe("pick", []string{"One", "--theme", "sepia", "--server", "http://should-not-connect.invalid"}, io.Discard)
+	if err == nil || !strings.Contains(err.Error(), "color_scheme") {
+		t.Fatalf("err=%v", err)
 	}
 }

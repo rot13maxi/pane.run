@@ -24,7 +24,7 @@ reproducible updates.
   "title": "Choose a direction",
   "description": "Pick the designs you prefer.",
   "ttl_seconds": 86400,
-  "presentation": { "tone": "professional", "density": "comfortable" },
+  "presentation": { "tone": "professional", "density": "comfortable", "color_scheme": "dark" },
   "components": [],
   "actions": { "submit": { "label": "Done" }, "reset": { "label": "Reset" } }
 }
@@ -32,8 +32,11 @@ reproducible updates.
 
 `ttl_seconds` is optional. It defaults to 86,400 seconds and must be between 60
 seconds and 604,800 seconds. Supported tones are `neutral`, `warm`, `playful`, and
-`professional`. Density is `comfortable` or `compact`. Presentation fields are hints,
-not layout or styling instructions.
+`professional`. Density is `comfortable` or `compact`. `color_scheme` is `light`,
+`dark`, or `system`; omitting it defaults to `system`. Recipes and spec-free
+`surface create` expose this as `--theme`. Agents should use a remembered user
+preference when known and otherwise omit the flag. Presentation fields are semantic
+hints, not layout or arbitrary styling instructions.
 
 ## Components
 

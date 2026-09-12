@@ -104,6 +104,7 @@ func create(args []string, out io.Writer) error {
 	server := fs.String("server", env("SURFACE_SERVER", defaultServer), "service URL")
 	title := fs.String("title", "Untitled surface", "page title when no specification file is given")
 	description := fs.String("description", "", "page description when no specification file is given")
+	theme := fs.String("theme", "", "light, dark, or system")
 	ttl := fs.Duration("ttl", 0, "lifetime when no specification file is given, for example 30m or 48h")
 	format := fs.String("format", "surface", "input format: surface or a2ui")
 	var assets stringList
@@ -134,12 +135,16 @@ func create(args []string, out io.Writer) error {
 		spec, err = os.ReadFile(fs.Arg(0))
 	} else if *format == "surface" {
 		document := schema.Spec{Version: schema.Version, Title: *title, Description: *description,
-			Components: []schema.Component{{Kind: schema.KindDivider}}}
+			Presentation: schema.Presentation{ColorScheme: *theme},
+			Components:   []schema.Component{{Kind: schema.KindDivider}}}
 		if *ttl != 0 {
 			if *ttl%time.Second != 0 {
 				return errors.New("--ttl must be a whole number of seconds")
 			}
 			document.TTLSeconds = int(*ttl / time.Second)
+		}
+		if err := schema.ValidateSpec(&document); err != nil {
+			return fmt.Errorf("invalid generated surface: %w", err)
 		}
 		spec, err = json.Marshal(document)
 	}

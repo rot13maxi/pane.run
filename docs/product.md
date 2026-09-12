@@ -8,8 +8,10 @@ values, and the agent polls for structured results.
 ## Principles
 
 1. Zero configuration: installing the skill and CLI is enough to create a surface.
-2. Intent over layout: agents choose primitives and light tone/density hints; the
-   renderer chooses placement and responsive behavior.
+2. Intent over layout: agents choose primitives and light tone, density, and color
+   scheme hints; the renderer chooses placement and responsive behavior. A remembered
+   user preference may select light or dark; otherwise omission follows the user's
+   operating-system preference.
 3. Disposable by design: the default TTL is 24 hours and the maximum is 7 days.
 4. Capability security: an unguessable public ID grants interaction access; a separate
    token grants read, update, close, and delete access.
@@ -22,7 +24,9 @@ values, and the agent polls for structured results.
 1. The agent chooses the shortest authoring path: a recipe such as `surface gallery`,
    `surface pick`, `surface rank`, `surface checklist`, or `surface approve` for the
    common case; `surface add` for a small custom composition; or a complete JSON
-   specification as an escape hatch.
+   specification as an escape hatch. Recipes and spec-free create accept
+   `--theme light|dark|system`; agents use a remembered preference when known and
+   otherwise omit it for the system default.
 2. The CLI prints a public URL, surface ID, management token, and expiry time. It also
    writes a local receipt so later commands need only the ID.
 3. A person opens the URL on desktop or mobile. Edits auto-save. Submit changes the

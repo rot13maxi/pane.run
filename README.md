@@ -12,7 +12,7 @@ Start with a recipe. Recipes cover common agent/human interactions without makin
 the agent write or retain a specification file:
 
 ```sh
-surface gallery --title "Pick a direction" ./mockups/*.png
+surface gallery --title "Pick a direction" --theme dark ./mockups/*.png
 surface pick --title "Choose a launch name" "Beacon" "Relay" "Signal"
 surface rank --title "Prioritize the backlog" "Hosted service" "More patterns" "Authentication"
 surface checklist --title "Release checklist" "Run tests" "Review notes" "Publish"
@@ -49,7 +49,9 @@ whole pipeline; when scripting, inspect the final envelope before sharing its UR
 
 The first add replaces the empty surface placeholder. The first interactive component
 also enables a `Done` action automatically. `pick` is an agent-friendly alias for a
-single select, and `sort` is an alias for a ranking list.
+single select, and `sort` is an alias for a ranking list. Recipes and spec-free
+`surface create` also accept `--theme light|dark|system`. Use a person's remembered
+preference when known; otherwise omit `--theme` so the page follows their system.
 
 Use a complete JSON document when a recipe or a few `surface add` commands would be
 more cumbersome. JSON remains the stable protocol and update format:

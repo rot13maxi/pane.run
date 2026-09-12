@@ -47,8 +47,9 @@ type Spec struct {
 }
 
 type Presentation struct {
-	Tone    string `json:"tone,omitempty"`
-	Density string `json:"density,omitempty"`
+	Tone        string `json:"tone,omitempty"`
+	ColorScheme string `json:"color_scheme,omitempty"`
+	Density     string `json:"density,omitempty"`
 }
 
 type Actions struct {

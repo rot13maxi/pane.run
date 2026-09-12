@@ -19,9 +19,9 @@ import (
 )
 
 type recipeOptions struct {
-	title, description, id, help, notes, tone, density, submit string
-	ttl                                                        time.Duration
-	required                                                   bool
+	title, description, id, help, notes, tone, density, theme, submit string
+	ttl                                                               time.Duration
+	required                                                          bool
 }
 
 func recipe(name string, args []string, out io.Writer) error {
@@ -35,6 +35,7 @@ func recipe(name string, args []string, out io.Writer) error {
 	fs.StringVar(&o.notes, "notes", "", "also add a notes field with this label")
 	fs.StringVar(&o.tone, "tone", "", "neutral, warm, playful, or professional")
 	fs.StringVar(&o.density, "density", "", "comfortable or compact")
+	fs.StringVar(&o.theme, "theme", "", "light, dark, or system")
 	fs.StringVar(&o.submit, "submit", "Done", "submit button label; empty disables submit")
 	fs.DurationVar(&o.ttl, "ttl", 0, "lifetime, for example 30m or 48h (max 168h)")
 	server := fs.String("server", env("SURFACE_SERVER", defaultServer), "service URL")
@@ -58,7 +59,7 @@ func recipe(name string, args []string, out io.Writer) error {
 	}
 	values := fs.Args()
 	spec := schema.Spec{Version: schema.Version, Title: o.title, Description: o.description,
-		Presentation: schema.Presentation{Tone: o.tone, Density: o.density}}
+		Presentation: schema.Presentation{Tone: o.tone, Density: o.density, ColorScheme: o.theme}}
 	if o.ttl != 0 {
 		if o.ttl%time.Second != 0 {
 			return errors.New("--ttl must be a whole number of seconds")

@@ -23,15 +23,17 @@ no implicit stdin or remembered last surface. Add prints a compact envelope cont
   "title": "Choose a direction",
   "description": "Pick the designs you prefer.",
   "ttl_seconds": 86400,
-  "presentation": { "tone": "professional", "density": "comfortable" },
+  "presentation": { "tone": "professional", "density": "comfortable", "color_scheme": "dark" },
   "components": [],
   "actions": { "submit": { "label": "Done" }, "reset": { "label": "Reset" } }
 }
 ```
 
 `ttl_seconds` defaults to 86,400 and must be 60–604,800. Tone is `neutral`, `warm`,
-`playful`, or `professional`; density is `comfortable` or `compact`. These are hints,
-not styling or layout controls.
+`playful`, or `professional`; density is `comfortable` or `compact`. `color_scheme`
+is `light`, `dark`, or `system`, and omission defaults to `system`. Recipes and
+spec-free create expose it as `--theme`. Use a remembered user preference when known;
+otherwise omit the flag. These are semantic hints, not styling or layout controls.
 
 ## Components
 

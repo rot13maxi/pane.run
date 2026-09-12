@@ -19,7 +19,7 @@ the surface has one primary interaction. That interaction is required by default
 `--optional` only when submitting it empty is intentional:
 
 ```sh
-surface gallery --title "Pick a direction" --multi ./mockups/*.png
+surface gallery --title "Pick a direction" --multi --theme dark ./mockups/*.png
 surface pick --title "Choose a launch name" "Beacon" "Relay" "Signal"
 surface rank --title "Prioritize these" "Hosted service" "More patterns" "Authentication"
 surface checklist --title "Release checklist" "Run tests" "Review notes" "Publish"
@@ -27,7 +27,9 @@ surface approve --title "Ship this release?" --body-file release-notes.md --note
 ```
 
 Parse the JSON response. Share only `url` with the person and retain `id` for later
-commands.
+commands. Recipes and spec-free `surface create` accept `--theme light|dark|system`.
+Use the person's remembered preference when known. Otherwise omit `--theme`; the
+surface defaults to `system` and follows their operating-system preference.
 
 ## Compose with `add`
 

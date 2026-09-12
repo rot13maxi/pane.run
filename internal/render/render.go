@@ -84,7 +84,7 @@ func Render(w io.Writer, page Page) error {
 	if err != nil {
 		return fmt.Errorf("encode initial state: %w", err)
 	}
-	classes := "tone-" + token(page.Spec.Presentation.Tone) + " density-" + token(page.Spec.Presentation.Density)
+	classes := "tone-" + token(page.Spec.Presentation.Tone) + " density-" + token(page.Spec.Presentation.Density) + " theme-" + token(page.Spec.EffectiveColorScheme())
 	return pageTemplate.Execute(w, viewData{Page: page, Initial: template.JS(initial), Classes: classes})
 }
 

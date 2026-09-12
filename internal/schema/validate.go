@@ -35,6 +35,14 @@ func invalid(path, format string, args ...any) error {
 }
 
 // EffectiveTTLSeconds applies the V1 default when ttl_seconds is omitted.
+// EffectiveColorScheme applies the system default when color_scheme is omitted.
+func (s Spec) EffectiveColorScheme() string {
+	if s.Presentation.ColorScheme == "" {
+		return "system"
+	}
+	return s.Presentation.ColorScheme
+}
+
 func (s Spec) EffectiveTTLSeconds() int {
 	if s.TTLSeconds == 0 {
 		return DefaultTTLSeconds
@@ -60,6 +68,9 @@ func ValidateSpec(s *Spec) error {
 	}
 	if s.Presentation.Tone != "" && !oneOf(s.Presentation.Tone, "neutral", "warm", "playful", "professional") {
 		return invalid("presentation.tone", "must be neutral, warm, playful, or professional")
+	}
+	if s.Presentation.ColorScheme != "" && !oneOf(s.Presentation.ColorScheme, "light", "dark", "system") {
+		return invalid("presentation.color_scheme", "must be light, dark, or system")
 	}
 	if s.Presentation.Density != "" && !oneOf(s.Presentation.Density, "comfortable", "compact") {
 		return invalid("presentation.density", "must be comfortable or compact")

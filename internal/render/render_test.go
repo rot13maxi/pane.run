@@ -73,3 +73,112 @@ func TestClosedSurfaceDisablesControls(t *testing.T) {
 		t.Fatal("closed result was not made read-only")
 	}
 }
+
+func TestVisualContractIsEditorialTactileAndMobileSafe(t *testing.T) {
+	p := Page{Spec: schema.Spec{
+		Title:        "Visual review",
+		Presentation: schema.Presentation{Tone: "neutral", Density: "compact"},
+		Components:   []schema.Component{{ID: "gallery", Kind: schema.KindGallery, Label: "Choose", Items: []schema.Item{{Value: "one", Label: "One", Image: "/one.png"}}}},
+	}, Result: schema.Result{Values: map[string]any{"gallery": []any{"one"}}}}
+	var out bytes.Buffer
+	if err := Render(&out, p); err != nil {
+		t.Fatal(err)
+	}
+	html := out.String()
+	for _, want := range []string{
+		`class="tone-neutral density-compact theme-system"`,
+		`.tone-neutral,.tone-default{--accent:#355d48`,
+		`--heading-font:Palatino,"Book Antiqua",Palatino,serif`,
+		`.tone-professional{--accent:#4b5f8f`,
+		`--heading-font:ui-sans-serif,system-ui`,
+		`.tone-warm{--accent:#74445f`,
+		`--heading-font:Georgia,"Times New Roman",serif`,
+		`.tone-playful{--accent:#9a6a1f`,
+		`--heading-font:"Trebuchet MS",Trebuchet`,
+		`color-mix(in srgb,var(--accent) 24%,transparent)`,
+		`.gallery .choice:has(input:checked)`,
+		`object-fit:contain`,
+		`@media(max-width:520px)`,
+		`@media(prefers-reduced-motion:reduce)`,
+	} {
+		if !strings.Contains(html, want) {
+			t.Errorf("output missing visual contract %q", want)
+		}
+	}
+	if strings.Contains(html, `#ad5038`) {
+		t.Error("legacy terracotta accent remains in visual contract")
+	}
+	if strings.LastIndex(html, `object-fit:cover`) > strings.LastIndex(html, `object-fit:contain`) {
+		t.Error("gallery crop rule overrides contain rule")
+	}
+}
+
+func TestColorSchemeClassesAndDarkTokenContract(t *testing.T) {
+	for _, tc := range []struct {
+		name, scheme, class string
+	}{
+		{name: "omitted follows system", class: "theme-system"},
+		{name: "explicit system", scheme: "system", class: "theme-system"},
+		{name: "explicit light", scheme: "light", class: "theme-light"},
+		{name: "explicit dark", scheme: "dark", class: "theme-dark"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			p := Page{Spec: schema.Spec{Title: "Theme", Presentation: schema.Presentation{Tone: "professional", ColorScheme: tc.scheme}}, Result: schema.Result{Values: map[string]any{}}}
+			var out bytes.Buffer
+			if err := Render(&out, p); err != nil {
+				t.Fatal(err)
+			}
+			if !strings.Contains(out.String(), tc.class) {
+				t.Fatalf("output missing body class %q", tc.class)
+			}
+		})
+	}
+
+	var out bytes.Buffer
+	p := Page{Spec: schema.Spec{Title: "Dark", Presentation: schema.Presentation{ColorScheme: "dark"}}, Result: schema.Result{Values: map[string]any{}}}
+	if err := Render(&out, p); err != nil {
+		t.Fatal(err)
+	}
+	html := out.String()
+	for _, want := range []string{
+		`.theme-dark{color-scheme:dark`,
+		`.theme-light{color-scheme:light`,
+		`.theme-system{color-scheme:light dark`,
+		`@media(prefers-color-scheme:dark){.theme-system`,
+		`--bg:#211f1c`,
+		`--card:#302c27`,
+		`--ink:#f1eadf`,
+		`--accent:var(--dark-accent)`,
+		`background:var(--panel)`,
+		`background:var(--control)`,
+		`background:var(--media)`,
+	} {
+		if !strings.Contains(html, want) {
+			t.Errorf("output missing dark-mode contract %q", want)
+		}
+	}
+}
+
+func TestDarkModeUsesSemanticForegroundTokens(t *testing.T) {
+	p := Page{Spec: schema.Spec{Title: "Readable", Presentation: schema.Presentation{ColorScheme: "dark"}, Components: []schema.Component{{ID: "choice", Kind: schema.KindApproval, Label: "Decision"}}}, Result: schema.Result{Values: map[string]any{}}}
+	var out bytes.Buffer
+	if err := Render(&out, p); err != nil {
+		t.Fatal(err)
+	}
+	html := out.String()
+	for _, want := range []string{
+		`.label{font-size:.97rem;color:var(--ink);`,
+		`input::placeholder,textarea::placeholder{color:var(--muted);opacity:1}`,
+		`.gallery-copy{display:grid;gap:4px;color:var(--ink)}`,
+		`.approval .choice{min-height:58px;color:var(--ink);background:var(--control)`,
+		`.button{min-height:52px;color:var(--accent-ink);`,
+		`--accent-ink:#171916`,
+	} {
+		if !strings.Contains(html, want) {
+			t.Errorf("output missing semantic dark foreground contract %q", want)
+		}
+	}
+	if strings.Contains(html, `#3f352d`) {
+		t.Error("hardcoded light-only label color remains")
+	}
+}
