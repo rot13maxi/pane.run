@@ -1,0 +1,27 @@
+{
+  "version": "1",
+  "title": "What should we build next?",
+  "description": "Put these V1 follow-ups in the order you would tackle them.",
+  "presentation": { "tone": "playful", "density": "comfortable" },
+  "components": [
+    {
+      "id": "priority_order",
+      "kind": "ranking",
+      "label": "Drag your priorities into order",
+      "required": true,
+      "items": [
+        { "value": "hosted", "label": "Hosted public service", "description": "Install the skill and it just works." },
+        { "value": "templates", "label": "More interaction patterns", "description": "Trackers, reviews, and richer pickers." },
+        { "value": "auth", "label": "Accounts and private surfaces", "description": "Access control and longer retention." },
+        { "value": "events", "label": "Wait and webhook support", "description": "Let agents react without manual polling." }
+      ]
+    },
+    {
+      "id": "reasoning",
+      "kind": "textarea",
+      "label": "Anything behind your ranking?",
+      "max_length": 500
+    }
+  ],
+  "actions": { "submit": { "label": "Lock in my ranking" }, "reset": { "label": "Start over" } }
+}

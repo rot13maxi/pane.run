@@ -1,0 +1,35 @@
+{
+  "version": "1",
+  "title": "V1 release review",
+  "description": "A compact approval surface generated for this build.",
+  "presentation": { "tone": "professional", "density": "compact" },
+  "components": [
+    { "kind": "heading", "content": "Included in this release", "level": 2 },
+    {
+      "id": "checks",
+      "kind": "checklist",
+      "label": "Verify the essentials",
+      "required": true,
+      "min_selections": 4,
+      "items": [
+        { "value": "mobile", "label": "Looks good on my phone" },
+        { "value": "inputs", "label": "Inputs feel easy to use" },
+        { "value": "autosave", "label": "My changes persist" },
+        { "value": "focused", "label": "It feels focused rather than app-builder-ish" }
+      ]
+    },
+    {
+      "id": "decision",
+      "kind": "approval",
+      "label": "Would you ship this direction?",
+      "required": true
+    },
+    {
+      "id": "notes",
+      "kind": "textarea",
+      "label": "Notes for the next iteration",
+      "max_length": 800
+    }
+  ],
+  "actions": { "submit": { "label": "Submit review" } }
+}

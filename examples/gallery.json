@@ -1,0 +1,30 @@
+{
+  "version": "1",
+  "title": "Choose a visual direction",
+  "description": "Pick up to three mockups that feel right.",
+  "ttl_seconds": 86400,
+  "presentation": { "tone": "professional", "density": "comfortable" },
+  "components": [
+    {
+      "id": "favorites",
+      "kind": "gallery",
+      "label": "Your favorites",
+      "help": "Tap an image to select it.",
+      "required": true,
+      "min_selections": 1,
+      "max_selections": 3,
+      "items": [
+        { "value": "calm", "label": "Calm", "image": "mockup-calm.png" },
+        { "value": "bold", "label": "Bold", "image": "mockup-bold.png" },
+        { "value": "editorial", "label": "Editorial", "image": "mockup-editorial.png" }
+      ]
+    },
+    {
+      "id": "notes",
+      "kind": "textarea",
+      "label": "What stood out?",
+      "max_length": 500
+    }
+  ],
+  "actions": { "submit": { "label": "Done choosing" } }
+}

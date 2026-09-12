@@ -1,0 +1,70 @@
+# Surface specification V1
+
+A surface is one JSON document. The agent declares ordered content and interaction
+primitives; the renderer owns their final responsive layout. Unknown component kinds
+are invalid, and interactive components require a stable `id` used as their state key.
+
+```json
+{
+  "version": "1",
+  "title": "Choose a direction",
+  "description": "Pick the designs you prefer.",
+  "ttl_seconds": 86400,
+  "presentation": { "tone": "professional", "density": "comfortable" },
+  "components": [],
+  "actions": { "submit": { "label": "Done" }, "reset": { "label": "Reset" } }
+}
+```
+
+`ttl_seconds` is optional. It defaults to 86,400 seconds and must be between 60
+seconds and 604,800 seconds. Supported tones are `neutral`, `warm`, `playful`, and
+`professional`. Density is `comfortable` or `compact`. Presentation fields are hints,
+not layout or styling instructions.
+
+## Components
+
+Every component has `kind`. Interactive components also require `id` and `label`, and
+may include `help` and `required`.
+
+| Kind | Purpose | Kind-specific fields | Stored value |
+| --- | --- | --- | --- |
+| `heading` | Heading | `content`, optional `level` 1-3 | none |
+| `text` | Text block | `content` | none |
+| `image` | Image | exactly one of `url` or `asset`, optional `alt` | none |
+| `link` | External link | `label`, HTTP(S) `url` | none |
+| `divider` | Visual separator | none | none |
+| `section` | Semantic grouping | `label`, `components` | none |
+| `input_text` | Single-line text | `placeholder`, `min_length`, `max_length` | string |
+| `textarea` | Multi-line text | `placeholder`, `min_length`, `max_length` | string |
+| `number` | Numeric entry | `min`, `max`, `step` | number |
+| `checkbox` | Boolean choice | none | boolean |
+| `toggle` | Boolean choice | none | boolean |
+| `select` | One choice | `options` | option value string |
+| `multi_select` | Multiple choices | `options`, selection bounds | string array |
+| `checklist` | Checkable item list | `items`, selection bounds | item value array |
+| `gallery` | Image picker | `items`, selection bounds | item value array |
+| `ranking` | Sort/prioritize items | `items` | complete item value array |
+| `approval` | Approve or reject | none | `approved` or `rejected` |
+| `comparison` | Read-only table | `columns`, `rows` | none |
+
+Selection bounds are `min_selections` and `max_selections`. Options contain `value`,
+`label`, and optional `description`. Items contain those fields plus optional `image`;
+gallery items require an image. Values within a component must be unique.
+
+Sections are semantic groups, not agent-controlled layouts. They may nest to four
+levels. A surface may contain at most 200 components and 200 state keys.
+
+## State and validation
+
+The state document is a JSON object keyed by interactive component IDs. Browser edits
+replace this object using an optimistic `revision`. Partial autosaves validate every
+present value but do not enforce `required`; submission additionally enforces required
+fields. This allows progress to remain readable before the person is finished.
+
+On a definition update, the service retains a value only when its ID still exists,
+its old and new component kinds share the same JSON value shape, and the value remains
+valid under the new component's bounds and allowed choices. Text and textarea, for
+example, are compatible. A checkbox changed to text is not.
+
+See [`../examples/gallery.json`](../examples/gallery.json) and
+[`../examples/workout.json`](../examples/workout.json) for complete documents.

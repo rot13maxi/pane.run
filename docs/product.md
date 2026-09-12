@@ -1,0 +1,49 @@
+# Agent Surface V1
+
+Agent Surface lets an agent materialize a temporary, purpose-built web interface when
+chat is the wrong medium. The agent submits a declarative specification and receives
+a responsive public URL. A person interacts with that page, the browser auto-saves
+values, and the agent polls for structured results.
+
+## Principles
+
+1. Zero configuration: installing the skill and CLI is enough to create a surface.
+2. Intent over layout: agents choose primitives and light tone/density hints; the
+   renderer chooses placement and responsive behavior.
+3. Disposable by design: the default TTL is 24 hours and the maximum is 7 days.
+4. Capability security: an unguessable public ID grants interaction access; a separate
+   token grants read, update, close, and delete access.
+5. State, not effects: UI controls only update a small JSON key-value document.
+6. No programming language: validation is local and declarative; there are no scripts,
+   formulas, arbitrary styling, or conditional business logic.
+
+## V1 workflow
+
+1. `surface create spec.json --asset mockup-a.png --asset mockup-b.png`
+2. The CLI prints a public URL, surface ID, management token, and expiry time. It also
+   writes a local receipt so later commands need only the ID.
+3. A person opens the URL on desktop or mobile. Edits auto-save. Submit changes the
+   status to `submitted` but does not lock the page.
+4. `surface read <id>` returns status, revision, timestamps, and values.
+5. The agent may replace the specification with `surface update`; compatible values
+   survive. It may close the surface to make it read-only or delete it early.
+
+## Initial primitives
+
+Content: heading, text, image, link, divider, and section.
+
+Inputs: text, textarea, number, checkbox, toggle, select, and multi-select.
+
+Compound interactions: checklist, gallery picker, ranking list, approval, and
+comparison. Compound primitives render polished domain-appropriate controls while
+writing ordinary JSON values under one stable component ID.
+
+Actions: submit and reset. Submit is a completion signal rather than a permanent lock.
+
+## Success criteria
+
+- A new surface can be created and opened in seconds with no account.
+- Generated pages are useful and touch-friendly without agent-authored layout code.
+- CLI output is machine-readable and stable enough for an agent skill.
+- Every human edit is recoverable through polling, even without explicit submission.
+- The service runs as a single inexpensive binary with durable local storage.

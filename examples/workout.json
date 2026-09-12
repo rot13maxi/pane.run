@@ -1,0 +1,26 @@
+{
+  "version": "1",
+  "title": "Friday workout",
+  "description": "Log each working set as you go.",
+  "presentation": { "tone": "neutral", "density": "compact" },
+  "components": [
+    { "kind": "heading", "content": "Back squat", "level": 2 },
+    { "id": "squat_set_1", "kind": "number", "label": "Set 1 weight", "min": 0, "step": 2.5 },
+    { "id": "squat_set_1_reps", "kind": "number", "label": "Set 1 reps", "min": 0, "step": 1 },
+    { "id": "squat_set_2", "kind": "number", "label": "Set 2 weight", "min": 0, "step": 2.5 },
+    { "id": "squat_set_2_reps", "kind": "number", "label": "Set 2 reps", "min": 0, "step": 1 },
+    {
+      "id": "accessories",
+      "kind": "checklist",
+      "label": "Accessories",
+      "items": [
+        { "value": "rows", "label": "Cable rows — 3×12" },
+        { "value": "plank", "label": "Plank — 3×45 sec" }
+      ]
+    }
+  ],
+  "actions": {
+    "submit": { "label": "Finish workout" },
+    "reset": { "label": "Clear log" }
+  }
+}
