@@ -9,9 +9,11 @@ import (
 	"mime"
 	"net/http"
 	"path"
+	"strconv"
 	"strings"
 	"time"
 
+	"github.com/agent-surface/agent-surface/internal/a2ui"
 	"github.com/agent-surface/agent-surface/internal/render"
 
 	"github.com/agent-surface/agent-surface/internal/schema"
@@ -46,6 +48,8 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		writeJSON(w, 200, map[string]string{"status": "ok"})
 	case r.URL.Path == "/api/v1/surfaces" && r.Method == http.MethodPost:
 		h.create(w, r)
+	case r.URL.Path == "/api/v1/imports/a2ui" && r.Method == http.MethodPost:
+		h.importA2UI(w, r)
 	case strings.HasPrefix(r.URL.Path, "/api/v1/surfaces/"):
 		h.management(w, r)
 	case strings.HasPrefix(r.URL.Path, "/api/v1/public/"):
@@ -57,6 +61,43 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	default:
 		writeError(w, 404, "not_found", "route not found")
 	}
+}
+
+func (h *Handler) importA2UI(w http.ResponseWriter, r *http.Request) {
+	if p := r.URL.Query().Get("protocol"); p != "" && p != "v0.9.1" {
+		writeError(w, 400, "unsupported_protocol", "protocol must be v0.9.1")
+		return
+	}
+	ttlSeconds := 0
+	if raw := r.URL.Query().Get("ttl_seconds"); raw != "" {
+		value, err := strconv.Atoi(raw)
+		if err != nil {
+			writeError(w, 400, "invalid_ttl", "ttl_seconds must be an integer")
+			return
+		}
+		ttlSeconds = value
+	}
+	r.Body = http.MaxBytesReader(w, r.Body, maxJSON)
+	body, err := io.ReadAll(r.Body)
+	if err != nil {
+		writeError(w, 400, "invalid_a2ui", "could not read A2UI batch")
+		return
+	}
+	result, err := a2ui.Import(body, a2ui.Options{Title: r.URL.Query().Get("title"), Description: r.URL.Query().Get("description"), TTLSeconds: ttlSeconds})
+	if err != nil {
+		writeError(w, 400, "invalid_a2ui", err.Error())
+		return
+	}
+	ttl := defaultTTL
+	if ttlSeconds != 0 {
+		ttl = time.Duration(ttlSeconds) * time.Second
+	}
+	s, token, err := h.store.CreateWithValues(result.Spec, ttl, result.Values)
+	if err != nil {
+		h.internal(w, err)
+		return
+	}
+	writeJSON(w, 201, map[string]any{"id": s.ID, "public_id": s.PublicID, "url": h.baseURL + "/s/" + s.PublicID, "management_token": token, "created_at": s.CreatedAt, "expires_at": s.ExpiresAt, "import": map[string]any{"format": "a2ui", "protocol": "v0.9.1", "surface_id": result.SurfaceID, "warnings": result.Warnings}})
 }
 
 func (h *Handler) create(w http.ResponseWriter, r *http.Request) {

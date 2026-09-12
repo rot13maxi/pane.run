@@ -12,6 +12,7 @@ import (
 	"net/url"
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"time"
 
@@ -79,7 +80,7 @@ func usage(w io.Writer) {
   surface approve [options]
   surface add <id> <kind> [options] [values...]
 
-  surface create [spec.json] [--title TITLE] [--server URL] [--asset name=path]
+  surface create [document] [--format surface|a2ui] [--title TITLE] [--server URL] [--asset name=path]
   surface read <id> [--server URL] [--token TOKEN]
   surface update <id> <spec.json> [--server URL] [--token TOKEN]
   surface close <id> [--server URL] [--token TOKEN]
@@ -104,6 +105,7 @@ func create(args []string, out io.Writer) error {
 	title := fs.String("title", "Untitled surface", "page title when no specification file is given")
 	description := fs.String("description", "", "page description when no specification file is given")
 	ttl := fs.Duration("ttl", 0, "lifetime when no specification file is given, for example 30m or 48h")
+	format := fs.String("format", "surface", "input format: surface or a2ui")
 	var assets stringList
 	fs.Var(&assets, "asset", "name=path (repeatable)")
 	if err := parseFlags(fs, args); err != nil {
@@ -113,13 +115,24 @@ func create(args []string, out io.Writer) error {
 		return err
 	}
 	if fs.NArg() > 1 {
-		return errors.New("create accepts at most one specification file")
+		return errors.New("create accepts at most one document file")
+	}
+	if *format != "surface" && *format != "a2ui" {
+		return errors.New("--format must be surface or a2ui")
+	}
+	if *format == "a2ui" && len(assets) != 0 {
+		return errors.New("--asset is not supported with --format a2ui")
 	}
 	var spec []byte
 	var err error
-	if fs.NArg() == 1 {
+	if fs.NArg() == 1 && fs.Arg(0) == "-" {
+		spec, err = io.ReadAll(io.LimitReader(os.Stdin, 1<<20+1))
+		if len(spec) > 1<<20 {
+			return errors.New("input exceeds 1 MiB")
+		}
+	} else if fs.NArg() == 1 {
 		spec, err = os.ReadFile(fs.Arg(0))
-	} else {
+	} else if *format == "surface" {
 		document := schema.Spec{Version: schema.Version, Title: *title, Description: *description,
 			Components: []schema.Component{{Kind: schema.KindDivider}}}
 		if *ttl != 0 {
@@ -133,7 +146,46 @@ func create(args []string, out io.Writer) error {
 	if err != nil {
 		return err
 	}
+	if *format == "a2ui" {
+		if len(spec) == 0 {
+			return errors.New("--format a2ui requires a document file or - for stdin")
+		}
+		query := url.Values{"protocol": {"v0.9.1"}}
+		if *title != "Untitled surface" {
+			query.Set("title", *title)
+		}
+		if *description != "" {
+			query.Set("description", *description)
+		}
+		if *ttl != 0 {
+			if *ttl%time.Second != 0 {
+				return errors.New("--ttl must be a whole number of seconds")
+			}
+			query.Set("ttl_seconds", strconv.FormatInt(int64(*ttl/time.Second), 10))
+		}
+		return createImportedDocument(newClient(*server), spec, query, out)
+	}
 	return createDocument(newClient(*server), spec, assets, out)
+}
+
+func createImportedDocument(c client, document []byte, query url.Values, out io.Writer) error {
+	created, err := c.request(http.MethodPost, "/api/v1/imports/a2ui?"+query.Encode(), "", "application/a2ui+json", document)
+	if err != nil {
+		return err
+	}
+	var meta map[string]any
+	if err := json.Unmarshal(created, &meta); err != nil {
+		return fmt.Errorf("invalid create response: %w", err)
+	}
+	id, _ := meta["id"].(string)
+	token, _ := meta["management_token"].(string)
+	if id == "" || token == "" {
+		return errors.New("create response omitted id or management_token")
+	}
+	if err := saveReceipt(receipt{ID: id, Server: c.server, ManagementToken: token}); err != nil {
+		return fmt.Errorf("surface created but receipt could not be saved: %w", err)
+	}
+	return pretty(out, created)
 }
 
 func createDocument(c client, spec []byte, assets []string, out io.Writer) error {

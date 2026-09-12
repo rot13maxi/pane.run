@@ -40,6 +40,14 @@ input or remembered last surface. Shell scripts should enable `pipefail` so an e
 failed command is not hidden by pipeline status. The service remains intentionally
 unaware of shell commands and does not become a general application builder.
 
+## Supported input formats
+
+Surface V1 remains the canonical stored and update format. The creation API and CLI
+may also import a complete A2UI v0.9 or v0.9.1 Basic Catalog batch through a strict,
+non-executable translation boundary. Import does not turn the service into a streaming
+A2UI runtime: custom catalogs, agent callbacks, arbitrary functions, and external
+actions remain outside the product boundary.
+
 ## Initial primitives
 
 Content: heading, text, image, link, divider, and section.

@@ -66,3 +66,15 @@ go test ./...
 go run ./cmd/surfaced -listen :8080 -data ./data/surfaces.json
 go run ./cmd/surface pick --server http://localhost:8080 --title "Pick one" Alpha Beta
 ```
+
+## A2UI import
+
+A complete A2UI v0.9.1 Basic Catalog batch can be translated into a disposable
+Surface while keeping Surface V1 as the persisted format:
+
+```sh
+surface create messages.jsonl --format a2ui --title "Review options"
+# or: producer | surface create - --format a2ui --title "Review options"
+```
+
+See `docs/protocol.md` for the deliberately restricted supported subset.
