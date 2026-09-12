@@ -4,6 +4,14 @@ A surface is one JSON document. The agent declares ordered content and interacti
 primitives; the renderer owns their final responsive layout. Unknown component kinds
 are invalid, and interactive components require a stable `id` used as their state key.
 
+Most agents should not need to author this document directly. The recipe commands
+(`gallery`, `pick`, `rank`, `checklist`, and `approve`) generate specifications for
+common interactions, while `surface add` composes a small custom surface one primitive
+at a time. Recipe interactions are required by default and accept `--optional`. For
+add commands, `pick` aliases `select` and `sort` aliases `ranking`. The first added
+component replaces the seed placeholder; the first interactive one adds Submit. Use raw JSON as the escape hatch for unusual or highly structured surfaces,
+and as the canonical format for reproducible updates.
+
 ```json
 {
   "version": "1",

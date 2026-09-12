@@ -5,10 +5,53 @@ description: Create and manage temporary, mobile-friendly interactive pages for 
 
 # Surface
 
-Use the `surface` CLI to create a focused, single-purpose interface. Read
-[`references/specification.md`](references/specification.md) before authoring a spec.
+Use the `surface` CLI to create a focused, single-purpose interface. Prefer the
+shortest authoring path in this order:
 
-Write the declarative JSON spec to a temporary file, then create the surface:
+1. A recipe for one common interaction.
+2. `surface create` followed by a few `surface add` commands for a custom combination.
+3. A complete declarative JSON document as an escape hatch.
+
+## Recipes
+
+Recipes infer a valid spec, stable IDs, and local asset bindings. Use them whenever
+the surface has one primary interaction. That interaction is required by default; add
+`--optional` only when submitting it empty is intentional:
+
+```sh
+surface gallery --title "Pick a direction" --multi ./mockups/*.png
+surface pick --title "Choose a launch name" "Beacon" "Relay" "Signal"
+surface rank --title "Prioritize these" "Hosted service" "More patterns" "Authentication"
+surface checklist --title "Release checklist" "Run tests" "Review notes" "Publish"
+surface approve --title "Ship this release?" --body-file release-notes.md --notes "Comments"
+```
+
+Parse the JSON response. Share only `url` with the person and retain `id` for later
+commands.
+
+## Compose with `add`
+
+When no recipe fits, create a surface and add a short ordered list of concrete
+components. Do not introduce templates, variables, layout instructions, or logic:
+
+```sh
+surface create --title "Afternoon workout"
+surface add <id> heading "Lower body"
+surface add <id> number --id squat_weight --label "Squat weight" --min 0
+surface add <id> number --id squat_reps --label "Squat reps" --min 0
+surface add <id> textarea --id notes --label "Notes"
+surface add <id> sort --id exercise_order --label "Exercise order" Squat Press Row
+```
+
+Use the `id` returned by `create`. The first add replaces the seed placeholder, and
+the first interactive add enables a `Done` action. Each add publishes immediately.
+Use `pick` for a single select and `sort` for a ranking list; `select` and `rank` are
+also accepted. Prefer stable descriptive IDs because returned values are keyed by them.
+
+## Raw specification escape hatch
+
+Read [`references/specification.md`](references/specification.md) before authoring a
+complete spec. Write it to a temporary file, then create the surface:
 
 ```sh
 surface create /tmp/choice.json
@@ -23,8 +66,7 @@ surface create /tmp/choice.json \
   --asset concept-b=/path/b.png
 ```
 
-Parse the JSON response. Share only `url` with the person and retain `id` for later
-commands. **Never reveal, log, quote, or embed `management_token` in a surface.** The
+**Never reveal, log, quote, or embed `management_token` in a surface.** The
 CLI stores a private local receipt, so later commands normally need only the ID.
 
 Inputs autosave; `submitted` is a completion signal rather than the only persisted

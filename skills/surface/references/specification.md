@@ -3,6 +3,15 @@
 A surface is a JSON document. The service owns responsive layout; the agent supplies
 ordered content, interaction primitives, and optional presentation hints.
 
+This is the canonical protocol and the escape hatch, not the default authoring path.
+First prefer a top-level `surface gallery`, `pick`, `rank`, `checklist`, or `approve`
+recipe. For a small mixed surface, use `surface create --title ...` and then
+`surface add <id> <kind> ...`. Write JSON directly when that is clearer or when the
+full document needs to be reproducible or updated atomically. Recipe interactions are
+required by default; pass `--optional` only to permit empty submission. In incremental
+composition, `pick` aliases `select` and `sort` aliases `ranking`. The first add
+replaces the seed placeholder, and the first interactive add enables Submit.
+
 ```json
 {
   "version": "1",
@@ -52,7 +61,7 @@ present values without enforcing `required`; submission enforces required values
 Definition updates preserve a value only when its stable ID, JSON shape, constraints,
 and allowed choices remain compatible.
 
-## CLI workflow
+## Raw JSON workflow
 
 ```sh
 surface create spec.json

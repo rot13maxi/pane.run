@@ -19,7 +19,10 @@ values, and the agent polls for structured results.
 
 ## V1 workflow
 
-1. `surface create spec.json --asset mockup-a.png --asset mockup-b.png`
+1. The agent chooses the shortest authoring path: a recipe such as `surface gallery`,
+   `surface pick`, `surface rank`, `surface checklist`, or `surface approve` for the
+   common case; `surface add` for a small custom composition; or a complete JSON
+   specification as an escape hatch.
 2. The CLI prints a public URL, surface ID, management token, and expiry time. It also
    writes a local receipt so later commands need only the ID.
 3. A person opens the URL on desktop or mobile. Edits auto-save. Submit changes the
@@ -27,6 +30,11 @@ values, and the agent polls for structured results.
 4. `surface read <id>` returns status, revision, timestamps, and values.
 5. The agent may replace the specification with `surface update`; compatible values
    survive. It may close the surface to make it read-only or delete it early.
+
+Recipes and incremental commands are agent UX, not separate platform concepts. They
+compile to the same declarative specification accepted by the HTTP service. The
+service remains intentionally unaware of shell commands and does not become a general
+application builder.
 
 ## Initial primitives
 

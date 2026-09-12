@@ -14,6 +14,8 @@ import (
 	"path/filepath"
 	"strings"
 	"time"
+
+	"github.com/agent-surface/agent-surface/internal/schema"
 )
 
 const defaultServer = "http://localhost:8080"
@@ -44,6 +46,10 @@ func run(args []string, stdout, stderr io.Writer) error {
 	switch args[0] {
 	case "create":
 		return create(args[1:], stdout)
+	case "gallery", "pick", "rank", "checklist", "approve":
+		return recipe(args[0], args[1:], stdout)
+	case "add":
+		return add(args[1:], stdout)
 	case "read":
 		return managed(http.MethodGet, "", args[1:], stdout)
 	case "update":
@@ -66,12 +72,20 @@ func run(args []string, stdout, stderr io.Writer) error {
 
 func usage(w io.Writer) {
 	fmt.Fprintln(w, `Usage:
-  surface create <spec.json> [--server URL] [--asset name=path]
+  surface gallery [options] <image>...
+  surface pick [options] <choice>...
+  surface rank [options] <item>...
+  surface checklist [options] <item>...
+  surface approve [options]
+  surface add <id> <kind> [options] [values...]
+
+  surface create [spec.json] [--title TITLE] [--server URL] [--asset name=path]
   surface read <id> [--server URL] [--token TOKEN]
   surface update <id> <spec.json> [--server URL] [--token TOKEN]
   surface close <id> [--server URL] [--token TOKEN]
   surface delete <id> [--server URL] [--token TOKEN]
 
+Run "surface <command> --help" for recipe and component options.
 Environment: SURFACE_SERVER, SURFACE_TOKEN, SURFACE_CONFIG_DIR`)
 }
 
@@ -85,21 +99,44 @@ func (s *stringList) Set(v string) error {
 
 func create(args []string, out io.Writer) error {
 	fs := flag.NewFlagSet("create", flag.ContinueOnError)
-	fs.SetOutput(io.Discard)
+	fs.SetOutput(out)
 	server := fs.String("server", env("SURFACE_SERVER", defaultServer), "service URL")
+	title := fs.String("title", "Untitled surface", "page title when no specification file is given")
+	description := fs.String("description", "", "page description when no specification file is given")
+	ttl := fs.Duration("ttl", 0, "lifetime when no specification file is given, for example 30m or 48h")
 	var assets stringList
 	fs.Var(&assets, "asset", "name=path (repeatable)")
-	if err := fs.Parse(reorderFlags(args)); err != nil {
+	if err := parseFlags(fs, args); err != nil {
+		if errors.Is(err, flag.ErrHelp) {
+			return nil
+		}
 		return err
 	}
-	if fs.NArg() != 1 {
-		return errors.New("create requires a specification file")
+	if fs.NArg() > 1 {
+		return errors.New("create accepts at most one specification file")
 	}
-	spec, err := os.ReadFile(fs.Arg(0))
+	var spec []byte
+	var err error
+	if fs.NArg() == 1 {
+		spec, err = os.ReadFile(fs.Arg(0))
+	} else {
+		document := schema.Spec{Version: schema.Version, Title: *title, Description: *description,
+			Components: []schema.Component{{Kind: schema.KindDivider}}}
+		if *ttl != 0 {
+			if *ttl%time.Second != 0 {
+				return errors.New("--ttl must be a whole number of seconds")
+			}
+			document.TTLSeconds = int(*ttl / time.Second)
+		}
+		spec, err = json.Marshal(document)
+	}
 	if err != nil {
 		return err
 	}
-	c := newClient(*server)
+	return createDocument(newClient(*server), spec, assets, out)
+}
+
+func createDocument(c client, spec []byte, assets []string, out io.Writer) error {
 	created, err := c.request(http.MethodPost, "/api/v1/surfaces", "", "application/json", spec)
 	if err != nil {
 		return err
@@ -144,7 +181,7 @@ func create(args []string, out io.Writer) error {
 
 func update(args []string, out io.Writer) error {
 	fs, server, token := managedFlags("update")
-	if err := fs.Parse(reorderFlags(args)); err != nil {
+	if err := parseFlags(fs, args); err != nil {
 		return err
 	}
 	if fs.NArg() != 2 {
@@ -167,7 +204,7 @@ func update(args []string, out io.Writer) error {
 
 func managed(method, suffix string, args []string, out io.Writer) error {
 	fs, server, token := managedFlags(strings.ToLower(method))
-	if err := fs.Parse(reorderFlags(args)); err != nil {
+	if err := parseFlags(fs, args); err != nil {
 		return err
 	}
 	if fs.NArg() != 1 {
@@ -209,6 +246,34 @@ func reorderFlags(args []string) []string {
 		}
 	}
 	return append(flags, rest...)
+}
+
+func parseFlags(fs *flag.FlagSet, args []string) error {
+	var flags, rest []string
+	for i := 0; i < len(args); i++ {
+		a := args[i]
+		if !strings.HasPrefix(a, "-") || a == "-" {
+			rest = append(rest, a)
+			continue
+		}
+		flags = append(flags, a)
+		name := strings.TrimLeft(a, "-")
+		if strings.Contains(name, "=") {
+			continue
+		}
+		f := fs.Lookup(name)
+		if f == nil {
+			continue
+		}
+		if bf, ok := f.Value.(interface{ IsBoolFlag() bool }); ok && bf.IsBoolFlag() {
+			continue
+		}
+		if i+1 < len(args) {
+			flags = append(flags, args[i+1])
+			i++
+		}
+	}
+	return fs.Parse(append(flags, rest...))
 }
 
 func newClient(server string) client {
