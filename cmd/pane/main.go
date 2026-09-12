@@ -21,6 +21,14 @@ import (
 
 const defaultServer = "http://localhost:8080"
 
+// These values are populated by the release workflow with -ldflags. Keeping
+// useful defaults makes locally built binaries easy to identify.
+var (
+	version   = "dev"
+	commit    = "unknown"
+	buildDate = "unknown"
+)
+
 type receipt struct {
 	ID              string `json:"id"`
 	Server          string `json:"server"`
@@ -62,7 +70,7 @@ func run(args []string, stdout, stderr io.Writer) error {
 	case "delete":
 		return managed(http.MethodDelete, "", args[1:], stdout)
 	case "version":
-		fmt.Fprintln(stdout, "pane dev")
+		fmt.Fprintf(stdout, "pane %s (commit %s, built %s)\n", version, commit, buildDate)
 		return nil
 	case "help", "-h", "--help":
 		usage(stdout)

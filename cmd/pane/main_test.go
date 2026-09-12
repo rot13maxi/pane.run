@@ -26,6 +26,20 @@ func TestReorderFlagsAllowsAgentFriendlyTrailingFlags(t *testing.T) {
 	}
 }
 
+func TestVersionReportsBuildMetadata(t *testing.T) {
+	oldVersion, oldCommit, oldBuildDate := version, commit, buildDate
+	t.Cleanup(func() { version, commit, buildDate = oldVersion, oldCommit, oldBuildDate })
+	version, commit, buildDate = "v1.2.3", "abc123", "2026-09-12T00:00:00Z"
+
+	var out bytes.Buffer
+	if err := run([]string{"version"}, &out, io.Discard); err != nil {
+		t.Fatal(err)
+	}
+	if got, want := out.String(), "pane v1.2.3 (commit abc123, built 2026-09-12T00:00:00Z)\n"; got != want {
+		t.Fatalf("version output = %q, want %q", got, want)
+	}
+}
+
 func TestReplaceAssetsRecursesWithoutChangingUnknownPlaceholders(t *testing.T) {
 	var input any
 	if err := json.Unmarshal([]byte(`{"hero":"asset:cover","items":[{"src":"asset:thumb"}],"other":"asset:missing"}`), &input); err != nil {
