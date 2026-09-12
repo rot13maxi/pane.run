@@ -205,7 +205,14 @@ func availableID(components []schema.Component, base string) string {
 	return id
 }
 
-func add(args []string, out io.Writer) error {
+type addEnvelope struct {
+	ID       string        `json:"id"`
+	URL      string        `json:"url"`
+	Revision uint64        `json:"revision"`
+	Status   schema.Status `json:"status"`
+}
+
+func add(args []string, in io.Reader, out io.Writer) error {
 	if len(args) > 0 && (args[0] == "--help" || args[0] == "-h") {
 		addUsage(out)
 		return nil
@@ -213,7 +220,11 @@ func add(args []string, out io.Writer) error {
 	if len(args) < 2 {
 		return errors.New("add requires a surface id and component kind; run surface add --help")
 	}
-	surfaceID, kind := args[0], args[1]
+	surfaceID, err := addSurfaceID(args[0], in)
+	if err != nil {
+		return err
+	}
+	kind := args[1]
 	fs := flag.NewFlagSet("add "+kind, flag.ContinueOnError)
 	fs.SetOutput(out)
 	server := fs.String("server", env("SURFACE_SERVER", ""), "service URL")
@@ -268,7 +279,53 @@ func add(args []string, out io.Writer) error {
 	if err != nil {
 		return err
 	}
-	return pretty(out, response)
+	var updated struct {
+		ID     string        `json:"id"`
+		URL    string        `json:"url"`
+		Result schema.Result `json:"result"`
+	}
+	if err := json.Unmarshal(response, &updated); err != nil {
+		return fmt.Errorf("invalid update response: %w", err)
+	}
+	if updated.ID == "" || updated.URL == "" {
+		return errors.New("update response omitted id or url")
+	}
+	return writeAddEnvelope(out, addEnvelope{ID: updated.ID, URL: updated.URL, Revision: updated.Result.Revision, Status: updated.Result.Status})
+}
+
+func addSurfaceID(arg string, in io.Reader) (string, error) {
+	if arg != "-" {
+		return arg, nil
+	}
+	if in == nil {
+		return "", errors.New("add - requires JSON from the previous surface command on stdin")
+	}
+	data, err := io.ReadAll(io.LimitReader(in, 1<<20+1))
+	if err != nil {
+		return "", fmt.Errorf("read piped surface JSON: %w", err)
+	}
+	if len(data) == 0 {
+		return "", errors.New("add - received empty stdin; pipe JSON from surface create or surface add")
+	}
+	if len(data) > 1<<20 {
+		return "", errors.New("piped surface JSON exceeds 1 MiB")
+	}
+	var prior struct {
+		ID string `json:"id"`
+	}
+	if err := json.Unmarshal(data, &prior); err != nil {
+		return "", fmt.Errorf("add - expected surface JSON on stdin: %w", err)
+	}
+	if prior.ID == "" {
+		return "", errors.New("piped surface JSON omitted id")
+	}
+	return prior.ID, nil
+}
+
+func writeAddEnvelope(out io.Writer, envelope addEnvelope) error {
+	encoder := json.NewEncoder(out)
+	encoder.SetEscapeHTML(false)
+	return encoder.Encode(envelope)
 }
 
 func componentFromAdd(kind string, values []string, id, label, help, placeholder string, required bool, level int, hasMin bool, min float64, hasMax bool, max float64, existing []schema.Component) (schema.Component, string, error) {
@@ -314,10 +371,10 @@ func componentFromAdd(kind string, values []string, id, label, help, placeholder
 		c.Kind = schema.KindImage
 		c.Alt = label
 		return c, values[0], nil
-	case "input", "input_text", "textarea", "number", "checkbox", "toggle", "approval":
-		labels := map[string]string{"input": "Response", "input_text": "Response", "textarea": "Notes", "number": "Value", "checkbox": "Check this", "toggle": "Enable", "approval": "Decision"}
+	case "input", "input_text", "textarea", "number", "checkbox", "toggle", "approve", "approval":
+		labels := map[string]string{"input": "Response", "input_text": "Response", "textarea": "Notes", "number": "Value", "checkbox": "Check this", "toggle": "Enable", "approve": "Decision", "approval": "Decision"}
 		interactive(labels[kind])
-		kinds := map[string]schema.ComponentKind{"input": schema.KindInputText, "input_text": schema.KindInputText, "textarea": schema.KindTextarea, "number": schema.KindNumber, "checkbox": schema.KindCheckbox, "toggle": schema.KindToggle, "approval": schema.KindApproval}
+		kinds := map[string]schema.ComponentKind{"input": schema.KindInputText, "input_text": schema.KindInputText, "textarea": schema.KindTextarea, "number": schema.KindNumber, "checkbox": schema.KindCheckbox, "toggle": schema.KindToggle, "approve": schema.KindApproval, "approval": schema.KindApproval}
 		c.Kind = kinds[kind]
 		if kind == "number" {
 			if hasMin {
@@ -382,12 +439,13 @@ func flagPresent(args []string, name string) bool {
 }
 func addUsage(w io.Writer) {
 	fmt.Fprintln(w, `Usage:
-  surface add <id> heading|text <text>
-  surface add <id> image <path> [--label ALT]
-  surface add <id> input|textarea|number|checkbox|toggle|approval --label LABEL [--id KEY]
-  surface add <id> pick|select|multi-select|checklist|rank|sort [--label LABEL] <item>...
-  surface add <id> divider
+  surface add <id|-> heading|text <text>
+  surface add <id|-> image <path> [--label ALT]
+  surface add <id|-> input|textarea|number|checkbox|toggle|approve|approval --label LABEL [--id KEY]
+  surface add <id|-> pick|select|multi-select|checklist|rank|sort [--label LABEL] <item>...
+  surface add <id|-> divider
 
+Use - as the surface id to read the previous create/add JSON from stdin.
 Common options: --id, --label, --hint, --required, --server, --token
 Input options: --placeholder; number options: --min, --max; heading: --level`)
 }

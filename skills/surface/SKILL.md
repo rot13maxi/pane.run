@@ -31,17 +31,34 @@ commands.
 
 ## Compose with `add`
 
-When no recipe fits, create a surface and add a short ordered list of concrete
-components. Do not introduce templates, variables, layout instructions, or logic:
+When no recipe fits, pipe a surface through a short ordered list of concrete
+components. For example:
 
 ```sh
-surface create --title "Afternoon workout"
-surface add <id> heading "Lower body"
-surface add <id> number --id squat_weight --label "Squat weight" --min 0
-surface add <id> number --id squat_reps --label "Squat reps" --min 0
-surface add <id> textarea --id notes --label "Notes"
-surface add <id> sort --id exercise_order --label "Exercise order" Squat Press Row
+set -o pipefail
+surface create --title "Release review" \
+  | surface add - heading "Ready to ship?" \
+  | surface add - approve --id decision --label "Release decision"
 ```
+
+Longer chains are fine, but do not introduce templates, variables, layout
+instructions, or logic:
+
+```sh
+set -o pipefail
+surface create --title "Afternoon workout" \
+  | surface add - heading "Lower body" \
+  | surface add - number --id squat_weight --label "Squat weight" --min 0 \
+  | surface add - number --id squat_reps --label "Squat reps" --min 0 \
+  | surface add - textarea --id notes --label "Notes" \
+  | surface add - sort --id exercise_order --label "Exercise order" Squat Press Row
+```
+
+Here `-` is allowed only in the surface-ID position. It consumes the previous
+`surface create` or `surface add` JSON from standard input and extracts `id`. Nothing
+implicitly reads standard input or selects a remembered last surface. Each add emits a
+compact JSON envelope with `id`, `url`, `revision`, and `status`, ready for another add.
+Use `set -o pipefail` in Bash so an earlier error fails the whole pipeline.
 
 Use the `id` returned by `create`. The first add replaces the seed placeholder, and
 the first interactive add enables a `Done` action. Each add publishes immediately.

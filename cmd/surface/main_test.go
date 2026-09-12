@@ -3,6 +3,7 @@ package main
 import (
 	"bytes"
 	"encoding/json"
+	"errors"
 	"flag"
 	"fmt"
 	"io"
@@ -217,7 +218,7 @@ func TestAddAliases(t *testing.T) {
 		name string
 		want schema.ComponentKind
 	}{
-		{"pick", schema.KindSelect}, {"sort", schema.KindRanking},
+		{"pick", schema.KindSelect}, {"sort", schema.KindRanking}, {"approve", schema.KindApproval},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -229,5 +230,116 @@ func TestAddAliases(t *testing.T) {
 				t.Fatalf("kind = %q, want %q", c.Kind, tt.want)
 			}
 		})
+	}
+}
+
+type failIfRead struct{ read bool }
+
+func (r *failIfRead) Read([]byte) (int, error) {
+	r.read = true
+	return 0, errors.New("stdin was consumed")
+}
+
+func TestAddSurfaceIDPipelineAndExplicitID(t *testing.T) {
+	var stage bytes.Buffer
+	if err := writeAddEnvelope(&stage, addEnvelope{ID: "surface-7", URL: "https://example/s/7", Revision: 2, Status: schema.StatusActive}); err != nil {
+		t.Fatal(err)
+	}
+	got, err := addSurfaceID("-", &stage)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got != "surface-7" {
+		t.Fatalf("id=%q", got)
+	}
+
+	unread := &failIfRead{}
+	got, err = addSurfaceID("explicit-id", unread)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got != "explicit-id" || unread.read {
+		t.Fatalf("id=%q stdin read=%v", got, unread.read)
+	}
+}
+
+func TestAddSurfaceIDRejectsBadPipelineInput(t *testing.T) {
+	tests := []struct{ name, input, want string }{
+		{"empty", "", "empty stdin"},
+		{"malformed", "not json", "expected surface JSON"},
+		{"missing id", `{"url":"https://example"}`, "omitted id"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			_, err := addSurfaceID("-", strings.NewReader(tt.input))
+			if err == nil || !strings.Contains(err.Error(), tt.want) {
+				t.Fatalf("err=%v, want containing %q", err, tt.want)
+			}
+		})
+	}
+}
+
+func TestAddEnvelopeIsCompactStableAndPrivate(t *testing.T) {
+	var out bytes.Buffer
+	value := addEnvelope{ID: "s1", URL: "https://example/s/p1", Revision: 3, Status: schema.StatusSubmitted}
+	if err := writeAddEnvelope(&out, value); err != nil {
+		t.Fatal(err)
+	}
+	want := `{"id":"s1","url":"https://example/s/p1","revision":3,"status":"submitted"}` + "\n"
+	if out.String() != want {
+		t.Fatalf("envelope=%q, want %q", out.String(), want)
+	}
+	if strings.Contains(out.String(), "token") || strings.Contains(out.String(), "spec") {
+		t.Fatalf("private/full data leaked: %s", out.String())
+	}
+	id, err := addSurfaceID("-", strings.NewReader(out.String()))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if id != "s1" {
+		t.Fatalf("chained id=%q", id)
+	}
+}
+
+func TestAddExplicitIDReturnsChainableEnvelope(t *testing.T) {
+	config := t.TempDir()
+	t.Setenv("SURFACE_CONFIG_DIR", config)
+	spec := schema.Spec{Version: schema.Version, Title: "Draft", Components: []schema.Component{{Kind: schema.KindDivider}}}
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		if r.Header.Get("Authorization") != "Bearer secret" {
+			t.Fatal("missing token")
+		}
+		switch r.Method {
+		case http.MethodGet:
+			json.NewEncoder(w).Encode(map[string]any{"id": "s9", "url": "https://public.test/s/p9", "spec": spec, "result": schema.Result{Status: schema.StatusActive}})
+		case http.MethodPut:
+			var updated schema.Spec
+			if err := json.NewDecoder(r.Body).Decode(&updated); err != nil {
+				t.Fatal(err)
+			}
+			if len(updated.Components) != 1 || updated.Components[0].Kind != schema.KindInputText || updated.Actions.Submit == nil {
+				t.Fatalf("updated spec=%#v", updated)
+			}
+			json.NewEncoder(w).Encode(map[string]any{"id": "s9", "url": "https://public.test/s/p9", "management_token": "must-not-leak", "spec": updated, "result": schema.Result{Status: schema.StatusActive, Revision: 4}})
+		default:
+			t.Fatalf("method=%s", r.Method)
+		}
+	}))
+	defer server.Close()
+	if err := saveReceipt(receipt{ID: "s9", Server: server.URL, ManagementToken: "secret"}); err != nil {
+		t.Fatal(err)
+	}
+	unread := &failIfRead{}
+	var out bytes.Buffer
+	if err := add([]string{"s9", "input", "--label", "Answer"}, unread, &out); err != nil {
+		t.Fatal(err)
+	}
+	if unread.read {
+		t.Fatal("explicit id consumed stdin")
+	}
+	want := `{"id":"s9","url":"https://public.test/s/p9","revision":4,"status":"active"}` + "\n"
+	if out.String() != want {
+		t.Fatalf("output=%q want=%q", out.String(), want)
 	}
 }

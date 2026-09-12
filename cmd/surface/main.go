@@ -49,7 +49,7 @@ func run(args []string, stdout, stderr io.Writer) error {
 	case "gallery", "pick", "rank", "checklist", "approve":
 		return recipe(args[0], args[1:], stdout)
 	case "add":
-		return add(args[1:], stdout)
+		return add(args[1:], os.Stdin, stdout)
 	case "read":
 		return managed(http.MethodGet, "", args[1:], stdout)
 	case "update":

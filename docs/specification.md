@@ -9,8 +9,14 @@ Most agents should not need to author this document directly. The recipe command
 common interactions, while `surface add` composes a small custom surface one primitive
 at a time. Recipe interactions are required by default and accept `--optional`. For
 add commands, `pick` aliases `select` and `sort` aliases `ranking`. The first added
-component replaces the seed placeholder; the first interactive one adds Submit. Use raw JSON as the escape hatch for unusual or highly structured surfaces,
-and as the canonical format for reproducible updates.
+component replaces the seed placeholder; the first interactive one adds Submit. Adds
+can be chained with `surface create ... | surface add - ...`. The `-` is explicit and
+only consumes a prior JSON result when used in the add command's surface-ID slot; no
+command implicitly reads standard input or remembers the last surface. Add output is a
+compact envelope with `id`, `url`, `revision`, and `status`. Shell scripts should use
+`pipefail` for reliable pipeline failure detection. Use raw JSON as the escape hatch
+for unusual or highly structured surfaces, and as the canonical format for
+reproducible updates.
 
 ```json
 {

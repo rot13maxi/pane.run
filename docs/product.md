@@ -32,9 +32,13 @@ values, and the agent polls for structured results.
    survive. It may close the surface to make it read-only or delete it early.
 
 Recipes and incremental commands are agent UX, not separate platform concepts. They
-compile to the same declarative specification accepted by the HTTP service. The
-service remains intentionally unaware of shell commands and does not become a general
-application builder.
+compile to the same declarative specification accepted by the HTTP service. Incremental
+commands may be chained explicitly as `surface create ... | surface add - ...`; only
+`-` in the add command's surface-ID position reads a prior JSON result from standard
+input. Add emits a compact, chainable result envelope. There is no implicit standard
+input or remembered last surface. Shell scripts should enable `pipefail` so an earlier
+failed command is not hidden by pipeline status. The service remains intentionally
+unaware of shell commands and does not become a general application builder.
 
 ## Initial primitives
 

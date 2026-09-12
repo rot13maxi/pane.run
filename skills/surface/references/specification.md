@@ -10,7 +10,12 @@ recipe. For a small mixed surface, use `surface create --title ...` and then
 full document needs to be reproducible or updated atomically. Recipe interactions are
 required by default; pass `--optional` only to permit empty submission. In incremental
 composition, `pick` aliases `select` and `sort` aliases `ranking`. The first add
-replaces the seed placeholder, and the first interactive add enables Submit.
+replaces the seed placeholder, and the first interactive add enables Submit. Chain
+composition explicitly with `surface create ... | surface add - ...`. Only `-` in the
+add command's surface-ID position consumes the prior JSON on standard input; there is
+no implicit stdin or remembered last surface. Add prints a compact envelope containing
+`id`, `url`, `revision`, and `status` for the next command. Bash scripts should enable
+`pipefail` so any failed stage fails the pipeline.
 
 ```json
 {
