@@ -1,0 +1,50 @@
+{
+  "version": "1",
+  "title": "Pick a Surface UI direction",
+  "description": "Choose any styles worth developing further. These show the same gallery interaction so the visual language is easier to compare.",
+  "presentation": { "tone": "neutral", "density": "comfortable" },
+  "components": [
+    {
+      "id": "favorites",
+      "kind": "gallery",
+      "label": "Favorite directions",
+      "help": "Select one or more.",
+      "required": true,
+      "min_selections": 1,
+      "items": [
+        {
+          "value": "editorial",
+          "label": "Editorial Minimal",
+          "description": "Ivory, ink, sharp type, and restrained cobalt.",
+          "image": "asset:editorial"
+        },
+        {
+          "value": "tactile",
+          "label": "Warm Tactile",
+          "description": "Oat, terracotta, forest green, and friendly controls.",
+          "image": "asset:tactile"
+        },
+        {
+          "value": "instrument",
+          "label": "Utility Instrument",
+          "description": "Dense dark tooling with a precise electric accent.",
+          "image": "asset:instrument"
+        },
+        {
+          "value": "modular",
+          "label": "Playful Modular",
+          "description": "Bold geometric blocks and crisp creative-tool energy.",
+          "image": "asset:modular"
+        }
+      ]
+    },
+    {
+      "id": "notes",
+      "kind": "textarea",
+      "label": "What should we borrow or combine?",
+      "placeholder": "For example: editorial typography with tactile controls…",
+      "max_length": 800
+    }
+  ],
+  "actions": { "submit": { "label": "Choose these directions" } }
+}
