@@ -98,6 +98,17 @@ func hashToken(v string) string {
 }
 
 func (s *Store) Create(spec schema.Spec, ttl time.Duration) (Surface, string, error) {
+	return s.CreateWithValues(spec, ttl, nil)
+}
+
+// CreateWithValues creates a surface with validated initial autosave state.
+func (s *Store) CreateWithValues(spec schema.Spec, ttl time.Duration, values map[string]any) (Surface, string, error) {
+	if values == nil {
+		values = map[string]any{}
+	}
+	if err := schema.ValidateValues(spec, values); err != nil {
+		return Surface{}, "", err
+	}
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	id, err := token(18)
@@ -116,7 +127,7 @@ func (s *Store) Create(spec schema.Spec, ttl time.Duration) (Surface, string, er
 	surface := &Surface{ID: id, PublicID: pub, ManagementHash: hashToken(management), Spec: spec, CreatedAt: now, ExpiresAt: now.Add(ttl)}
 	surface.Result.Status = schema.StatusActive
 	surface.Result.Revision = 0
-	surface.Result.Values = map[string]any{}
+	surface.Result.Values = values
 	surface.Result.CreatedAt = now
 	surface.Result.UpdatedAt = now
 	surface.Result.ExpiresAt = surface.ExpiresAt

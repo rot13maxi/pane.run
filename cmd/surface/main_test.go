@@ -343,3 +343,24 @@ func TestAddExplicitIDReturnsChainableEnvelope(t *testing.T) {
 		t.Fatalf("output=%q want=%q", out.String(), want)
 	}
 }
+
+func TestCreateA2UIUsesImportEndpoint(t *testing.T) {
+	input := filepath.Join(t.TempDir(), "surface.jsonl")
+	if err := os.WriteFile(input, []byte(`{"version":"v0.9"}`), 0600); err != nil {
+		t.Fatal(err)
+	}
+	var path, contentType string
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		path, contentType = r.URL.RequestURI(), r.Header.Get("Content-Type")
+		w.Header().Set("Content-Type", "application/json")
+		io.WriteString(w, `{"id":"s-a2ui","url":"http://example/s/p","management_token":"secret"}`)
+	}))
+	defer server.Close()
+	t.Setenv("SURFACE_CONFIG_DIR", t.TempDir())
+	if err := create([]string{input, "--format", "a2ui", "--title", "Review", "--ttl", "10m", "--server", server.URL}, io.Discard); err != nil {
+		t.Fatal(err)
+	}
+	if path != "/api/v1/imports/a2ui?protocol=v0.9.1&title=Review&ttl_seconds=600" || contentType != "application/a2ui+json" {
+		t.Fatalf("request path=%q content-type=%q", path, contentType)
+	}
+}

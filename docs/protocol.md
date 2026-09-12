@@ -1,6 +1,6 @@
 # HTTP protocol
 
-All JSON endpoints use `Content-Type: application/json`. Management endpoints require
+Native JSON endpoints use `Content-Type: application/json`; the A2UI import endpoint uses `application/a2ui+json`. Management endpoints require
 `Authorization: Bearer <management-token>` except creation. Errors use
 `{"error":{"code":"...","message":"..."}}`.
 
@@ -29,3 +29,24 @@ Creation returns `id`, `url`, `management_token`, `created_at`, and `expires_at`
 State updates are JSON objects with `revision` and `values`. A stale revision returns
 HTTP 409 with the current result so the browser can reconcile rather than silently
 overwriting a newer edit.
+
+## A2UI import
+
+`POST /api/v1/imports/a2ui?protocol=v0.9.1` accepts a bounded complete batch of
+A2UI v0.9 or v0.9.1 envelopes as either a JSON array or a JSON/JSONL sequence.
+The request content type is `application/a2ui+json`. Optional `title`,
+`description`, and `ttl_seconds` query parameters supply Agent Surface lifecycle
+metadata, which A2UI does not define.
+
+The importer supports a non-executable subset of the A2UI Basic Catalog and
+compiles it to a canonical Surface V1 document. Supported components are
+`Column`, `Row`, `Card`, `Text`, `Divider`, `Image`, `TextField`, `CheckBox`,
+`ChoicePicker`, and `Button`. Containers are flattened because the renderer owns
+layout. Buttons are accepted only for `submit` and `reset` events. Custom
+catalogs, function calls, dynamic child templates, other actions, and deleted
+surfaces are rejected.
+
+The normal creation fields are returned with an additional `import` object
+containing the source surface ID, selected protocol, and translation warnings.
+Initial values resolved through A2UI data bindings are installed as revision-zero
+Surface state.

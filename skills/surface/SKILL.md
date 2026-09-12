@@ -65,6 +65,12 @@ the first interactive add enables a `Done` action. Each add publishes immediatel
 Use `pick` for a single select and `sort` for a ranking list; `select` and `rank` are
 also accepted. Prefer stable descriptive IDs because returned values are keyed by them.
 
+## Import A2UI
+
+When the user or an upstream agent supplies a complete A2UI batch, read
+[`references/a2ui.md`](references/a2ui.md) and import it directly. Do not manually
+rewrite supported A2UI into Surface JSON.
+
 ## Raw specification escape hatch
 
 Read [`references/specification.md`](references/specification.md) before authoring a

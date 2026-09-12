@@ -116,3 +116,44 @@ func TestAssetUpload(t *testing.T) {
 		t.Fatalf("asset=%q", b)
 	}
 }
+
+func TestA2UIImportCreatesCanonicalSurfaceWithInitialState(t *testing.T) {
+	ts := newTestServer(t)
+	defer ts.Close()
+	batch := `{"version":"v0.9","createSurface":{"surfaceId":"review","catalogId":"https://a2ui.org/specification/v0_9/catalogs/basic/catalog.json"}}
+{"version":"v0.9","updateComponents":{"surfaceId":"review","components":[{"id":"root","component":"Column","children":["field"]},{"id":"field","component":"TextField","label":"Answer","value":{"path":"/answer"},"variant":"shortText"}]}}
+{"version":"v0.9","updateDataModel":{"surfaceId":"review","path":"/answer","value":"yes"}}`
+	req, _ := http.NewRequest(http.MethodPost, ts.URL+"/api/v1/imports/a2ui?protocol=v0.9.1&title=Review", strings.NewReader(batch))
+	req.Header.Set("Content-Type", "application/a2ui+json")
+	resp, err := ts.Client().Do(req)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer resp.Body.Close()
+	var created map[string]any
+	if err := json.NewDecoder(resp.Body).Decode(&created); err != nil {
+		t.Fatal(err)
+	}
+	if resp.StatusCode != http.StatusCreated {
+		t.Fatalf("create=%d %#v", resp.StatusCode, created)
+	}
+	imp := created["import"].(map[string]any)
+	if imp["surface_id"] != "review" || imp["protocol"] != "v0.9.1" {
+		t.Fatalf("import metadata=%#v", imp)
+	}
+	_, read := requestJSON(t, ts.Client(), http.MethodGet, ts.URL+"/api/v1/surfaces/"+created["id"].(string), nil, created["management_token"].(string))
+	spec := read["spec"].(map[string]any)
+	result := read["result"].(map[string]any)
+	if spec["title"] != "Review" || result["values"].(map[string]any)["field"] != "yes" {
+		t.Fatalf("surface=%#v", read)
+	}
+}
+
+func TestA2UIImportRejectsUnsupportedProtocol(t *testing.T) {
+	ts := newTestServer(t)
+	defer ts.Close()
+	resp, body := requestJSON(t, ts.Client(), http.MethodPost, ts.URL+"/api/v1/imports/a2ui?protocol=v1.0", map[string]any{}, "")
+	if resp.StatusCode != http.StatusBadRequest || body["error"].(map[string]any)["code"] != "unsupported_protocol" {
+		t.Fatalf("response=%d %#v", resp.StatusCode, body)
+	}
+}
