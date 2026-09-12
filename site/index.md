@@ -21,9 +21,7 @@ The installer supports macOS and Linux on ARM64 and AMD64. It installs to `~/.lo
 pane pick --title "Choose a launch name" Beacon Relay Signal
 ```
 
-## Built for more than chat
-
-One tool call creates the right interface.
+## Examples
 
 - Compare visual directions: `pane gallery --title "Choose a direction" ./concepts/*.png`
 - Rank priorities: `pane rank --title "What should we build next?" "Hosted service" "More patterns" "Accounts"`

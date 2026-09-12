@@ -34,7 +34,9 @@ The vanilla CloudFormation template creates:
 - one CloudFront Function that preserves the viewer hostname for generated URLs;
 - one CloudFront Function that serves `index.md` when `/` explicitly requests `text/markdown`;
 - one response-header policy that sandboxes untrusted uploaded assets; and
-- one CloudWatch log group with 14-day retention.
+- one CloudWatch log group with 14-day retention;
+- six anonymous CloudWatch usage counters and a usage dashboard; and
+- one CloudWatch alarm for bursts of surface-creation errors.
 
 There is no VPC, NAT gateway, load balancer, provisioned database capacity, or continuously running compute. The packaging bucket is created outside the stack and retained for subsequent deployments.
 
@@ -102,6 +104,23 @@ just outputs
 aws logs tail /aws/lambda/pane-run-pane --follow
 aws cloudformation describe-stack-events --stack-name pane-run
 ```
+
+The `${STACK}-usage` CloudWatch dashboard reports these global counters without
+surface IDs, management tokens, specification content, IP addresses, or client
+information:
+
+- `SurfaceCreateAttempts` counts native and A2UI creation requests;
+- `SurfacesCreated` counts creation requests that returned `201 Created`;
+- `SurfaceLoads` counts successful initial state fetches made by rendered pages;
+- `StateWrites` counts successful autosaves;
+- `Submissions` counts successful submissions; and
+- `CreateErrors` counts creation requests that returned a 4xx or 5xx response.
+
+The dashboard shows per-minute traffic and totals for its selected time range.
+The `${STACK}-pane-create-errors` alarm enters `ALARM` when at least five create
+errors occur in one minute. It has no notification action by default; attach an
+SNS topic if notifications are wanted. Usage metrics are emitted through the
+existing Lambda log stream using CloudWatch Embedded Metric Format.
 
 Adjust the commands when `STACK` or `AWS_REGION` differs from its default. CloudFront access logging and AWS WAF are intentionally not enabled in V1.
 

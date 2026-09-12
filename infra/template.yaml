@@ -119,6 +119,78 @@ Resources:
       LogGroupName: !Sub '/aws/lambda/${AWS::StackName}-pane'
       RetentionInDays: !Ref LogRetentionDays
 
+  PaneUsageDashboard:
+    Type: AWS::CloudWatch::Dashboard
+    Properties:
+      DashboardName: !Sub '${AWS::StackName}-usage'
+      DashboardBody: !Sub |
+        {
+          "widgets": [
+            {
+              "type": "metric",
+              "x": 0,
+              "y": 0,
+              "width": 24,
+              "height": 7,
+              "properties": {
+                "title": "Pane usage per minute",
+                "region": "${AWS::Region}",
+                "view": "timeSeries",
+                "stacked": false,
+                "period": 60,
+                "stat": "Sum",
+                "metrics": [
+                  ["Pane/Usage", "SurfaceCreateAttempts", "Service", "Pane"],
+                  ["Pane/Usage", "SurfacesCreated", "Service", "Pane"],
+                  ["Pane/Usage", "SurfaceLoads", "Service", "Pane"],
+                  ["Pane/Usage", "StateWrites", "Service", "Pane"],
+                  ["Pane/Usage", "Submissions", "Service", "Pane"],
+                  ["Pane/Usage", "CreateErrors", "Service", "Pane"]
+                ]
+              }
+            },
+            {
+              "type": "metric",
+              "x": 0,
+              "y": 7,
+              "width": 24,
+              "height": 5,
+              "properties": {
+                "title": "Launch totals",
+                "region": "${AWS::Region}",
+                "view": "singleValue",
+                "sparkline": true,
+                "setPeriodToTimeRange": true,
+                "stat": "Sum",
+                "metrics": [
+                  ["Pane/Usage", "SurfacesCreated", "Service", "Pane"],
+                  ["Pane/Usage", "SurfaceLoads", "Service", "Pane"],
+                  ["Pane/Usage", "StateWrites", "Service", "Pane"],
+                  ["Pane/Usage", "Submissions", "Service", "Pane"]
+                ]
+              }
+            }
+          ]
+        }
+
+  PaneCreateErrorAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmName: !Sub '${AWS::StackName}-pane-create-errors'
+      AlarmDescription: Five or more Pane creation errors occurred in one minute
+      Namespace: Pane/Usage
+      MetricName: CreateErrors
+      Dimensions:
+        - Name: Service
+          Value: Pane
+      Statistic: Sum
+      Period: 60
+      EvaluationPeriods: 1
+      DatapointsToAlarm: 1
+      Threshold: 5
+      ComparisonOperator: GreaterThanOrEqualToThreshold
+      TreatMissingData: notBreaching
+
   HttpApi:
     Type: AWS::ApiGatewayV2::Api
     Properties:
@@ -355,3 +427,7 @@ Outputs:
     Value: !Ref PaneBucket
   TableName:
     Value: !Ref PaneTable
+  UsageDashboardName:
+    Value: !Ref PaneUsageDashboard
+  CreateErrorAlarmName:
+    Value: !Ref PaneCreateErrorAlarm

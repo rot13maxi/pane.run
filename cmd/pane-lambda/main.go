@@ -10,6 +10,7 @@ import (
 	"net/url"
 	"os"
 	"strings"
+	"time"
 
 	"github.com/agent-surface/agent-surface/internal/awsstore"
 	"github.com/agent-surface/agent-surface/internal/server"
@@ -75,6 +76,9 @@ func (a *app) handle(ctx context.Context, event events.APIGatewayV2HTTPRequest) 
 	status := out.status
 	if status == 0 {
 		status = http.StatusOK
+	}
+	if err := emitUsageMetrics(os.Stdout, time.Now().UTC(), event.RequestContext.HTTP.Method, path, status); err != nil {
+		log.Printf("emit usage metrics: %v", err)
 	}
 	headers := map[string]string{}
 	for k, v := range out.header {
