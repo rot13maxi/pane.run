@@ -161,6 +161,7 @@ Resources:
               - Effect: Allow
                 Action:
                   - route53:ChangeResourceRecordSets
+                  - route53:GetHostedZone
                   - route53:ListResourceRecordSets
                 Resource: !Sub 'arn:${AWS::Partition}:route53:::hostedzone/${HostedZoneId}'
               - Effect: Allow
