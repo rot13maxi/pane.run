@@ -1,15 +1,19 @@
 name: Release
 
 on:
+  workflow_dispatch:
   push:
     tags:
       - 'v*'
 
 permissions:
-  contents: write
+  contents: read
 
 jobs:
   release:
+    if: github.event_name == 'push'
+    permissions:
+      contents: write
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -28,3 +32,40 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: gh release create "${GITHUB_REF_NAME}" dist/* --generate-notes --verify-tag
+
+  deploy:
+    needs: release
+    if: always() && (github.event_name == 'workflow_dispatch' || needs.release.result == 'success')
+    runs-on: ubuntu-latest
+    environment: production
+    concurrency:
+      group: production
+      cancel-in-progress: false
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+          cache: true
+      - name: Install just
+        run: sudo apt-get update && sudo apt-get install -y just
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v6.2.3
+        with:
+          role-to-assume: ${{ vars.AWS_DEPLOY_ROLE_ARN }}
+          aws-region: ${{ vars.AWS_REGION }}
+          allowed-account-ids: ${{ vars.AWS_ACCOUNT_ID }}
+          role-session-name: pane-release-${{ github.run_id }}
+      - name: Deploy Pane
+        env:
+          AWS_REGION: ${{ vars.AWS_REGION }}
+          STACK: ${{ vars.AWS_STACK_NAME }}
+          ARTIFACT_BUCKET: ${{ vars.AWS_ARTIFACT_BUCKET }}
+          CFN_EXECUTION_ROLE_ARN: ${{ vars.AWS_CFN_EXECUTION_ROLE_ARN }}
+          PANE_DOMAIN: ${{ vars.PANE_DOMAIN }}
+          PANE_HOSTED_ZONE_ID: ${{ vars.PANE_HOSTED_ZONE_ID }}
+          PANE_CERTIFICATE_ARN: ${{ vars.PANE_CERTIFICATE_ARN }}
+        run: just deploy-ci

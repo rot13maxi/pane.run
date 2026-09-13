@@ -9,6 +9,8 @@ domain := env_var_or_default("PANE_DOMAIN", "pane.run")
 hosted_zone := env_var_or_default("PANE_HOSTED_ZONE_ID", "Z07208213M91D6YKP9C29")
 certificate := env_var_or_default("PANE_CERTIFICATE_ARN", "arn:aws:acm:us-east-1:439226424161:certificate/84fc23fc-4edf-42c0-b989-c3c7f71070a7")
 release_version := env_var_or_default("VERSION", "dev")
+artifact_bucket := env_var_or_default("ARTIFACT_BUCKET", "")
+cfn_execution_role := env_var_or_default("CFN_EXECUTION_ROLE_ARN", "")
 
 _default:
     @just --list
@@ -51,7 +53,8 @@ check:
 deploy: build
     aws acm wait certificate-validated --region us-east-1 --certificate-arn "{{certificate}}"
     account="$(aws sts get-caller-identity --query Account --output text)"; \
-    artifact_bucket="${ARTIFACT_BUCKET:-pane-run-artifacts-${account}-{{region}}}"; \
+    artifact_bucket="{{artifact_bucket}}"; \
+    if [ -z "$artifact_bucket" ]; then artifact_bucket="pane-run-artifacts-${account}-{{region}}"; fi; \
     if ! aws s3api head-bucket --bucket "${artifact_bucket}" >/dev/null 2>&1; then \
       if [ "{{region}}" = us-east-1 ]; then \
         aws s3api create-bucket --bucket "${artifact_bucket}" --region "{{region}}" >/dev/null; \
@@ -65,10 +68,13 @@ deploy: build
       --s3-bucket "${artifact_bucket}" \
       --s3-prefix "{{stack}}" \
       --output-template-file build/packaged.yaml; \
+    role_args=(); \
+    if [ -n "{{cfn_execution_role}}" ]; then role_args+=(--role-arn "{{cfn_execution_role}}"); fi; \
     aws cloudformation deploy \
       --region "{{region}}" \
       --stack-name "{{stack}}" \
       --template-file build/packaged.yaml \
+      "${role_args[@]}" \
       --capabilities CAPABILITY_IAM \
       --parameter-overrides DomainName="{{domain}}" HostedZoneId="{{hosted_zone}}" CertificateArn="{{certificate}}" \
       --no-fail-on-empty-changeset; \
@@ -83,6 +89,12 @@ deploy: build
       --stack-name "{{stack}}" \
       --query 'Stacks[0].Outputs[?OutputKey==`PaneURL`].OutputValue' \
       --output text
+
+# CI deployment: buckets and roles must already exist; see docs/deployment.md.
+deploy-ci:
+    test -n "{{artifact_bucket}}" || { echo "ARTIFACT_BUCKET is required" >&2; exit 2; }
+    test -n "{{cfn_execution_role}}" || { echo "CFN_EXECUTION_ROLE_ARN is required" >&2; exit 2; }
+    just deploy
 
 outputs:
     aws cloudformation describe-stacks --region "{{region}}" --stack-name "{{stack}}" --query 'Stacks[0].Outputs' --output table

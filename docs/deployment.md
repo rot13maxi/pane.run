@@ -61,6 +61,72 @@ just deploy
 
 CloudFront requires its ACM certificate in `us-east-1`, regardless of the stack region. The recipe waits for certificate validation, deploys the stack, uploads `site/index.html`, `index.md`, `llms.txt`, and `install.sh` to the private content bucket, and prints the public URL.
 
+## Release-tag continuous deployment
+
+Pushing a `v*` tag publishes the GitHub release and then deploys the tagged commit. The
+same workflow can be dispatched manually from `main` to deploy without publishing a
+release. It uses GitHub OIDC, so AWS access keys are not stored in GitHub. Its AWS role can
+create and execute change sets only for the configured application stack, pass only the
+dedicated CloudFormation execution role, write only the stack's packaging prefix, and
+update only the public site objects in the stack's content bucket.
+
+Bootstrap this once with administrator credentials. If the account does not already
+have GitHub's OIDC provider, create it first with provider URL
+`https://token.actions.githubusercontent.com` and audience `sts.amazonaws.com`.
+
+```sh
+CONTENT_BUCKET="$(aws cloudformation describe-stacks \
+  --region us-east-1 --stack-name pane-run \
+  --query 'Stacks[0].Outputs[?OutputKey==`BucketName`].OutputValue' --output text)"
+ACCOUNT_ID="$(aws sts get-caller-identity --query Account --output text)"
+ARTIFACT_BUCKET="pane-run-artifacts-${ACCOUNT_ID}-us-east-1"
+
+aws cloudformation deploy \
+  --region us-east-1 \
+  --stack-name pane-run-github-deploy \
+  --template-file infra/github-deploy-roles.yaml \
+  --capabilities CAPABILITY_NAMED_IAM \
+  --parameter-overrides \
+    GitHubOidcProviderArn="arn:aws:iam::${ACCOUNT_ID}:oidc-provider/token.actions.githubusercontent.com" \
+    ArtifactBucketName="${ARTIFACT_BUCKET}" \
+    ContentBucketName="${CONTENT_BUCKET}" \
+    HostedZoneId="Z07208213M91D6YKP9C29" \
+    CertificateArn="arn:aws:acm:us-east-1:439226424161:certificate/84fc23fc-4edf-42c0-b989-c3c7f71070a7"
+```
+
+The artifact bucket must already exist (a prior `just deploy` creates it). The bootstrap
+stack outputs the two role ARNs. Add these GitHub **production environment variables**:
+
+| Variable | Value |
+| --- | --- |
+| `AWS_ACCOUNT_ID` | AWS account number |
+| `AWS_REGION` | `us-east-1` |
+| `AWS_STACK_NAME` | `pane-run` |
+| `AWS_ARTIFACT_BUCKET` | packaging bucket name |
+| `AWS_DEPLOY_ROLE_ARN` | `GitHubDeployRoleArn` bootstrap output |
+| `AWS_CFN_EXECUTION_ROLE_ARN` | `CloudFormationExecutionRoleArn` bootstrap output |
+| `PANE_DOMAIN` | `pane.run` |
+| `PANE_HOSTED_ZONE_ID` | Route 53 hosted zone ID |
+| `PANE_CERTIFICATE_ARN` | ACM certificate ARN |
+
+Configure the GitHub `production` environment to allow only `v*` deployment tags and,
+if desired, require a reviewer. The IAM trust policy independently requires both that
+environment and either `main` (for a manual run) or a `v*` ref (for a release) in
+`rot13maxi/pane.run`. Change the template parameters if the repository is moved. Do not
+put these values in secrets: they are identifiers, not credentials.
+
+After bootstrapping, pass the execution role once on a local deployment if the existing
+application stack has not yet been associated with it:
+
+```sh
+ARTIFACT_BUCKET="$ARTIFACT_BUCKET" \
+CFN_EXECUTION_ROLE_ARN="<CloudFormationExecutionRoleArn>" just deploy-ci
+```
+
+CloudFormation permanently associates a supplied service role with a stack. Keep the
+bootstrap stack separate from the application stack so the application cannot modify
+the GitHub deploy role that authorizes its own updates.
+
 Inspect the stack outputs with:
 
 ```sh
