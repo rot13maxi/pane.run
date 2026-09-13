@@ -8,6 +8,12 @@ Parameters:
   GitHubRepo:
     Type: String
     Default: pane.run
+  GitHubOrgId:
+    Type: String
+    Default: '115941166'
+  GitHubRepoId:
+    Type: String
+    Default: '1367635237'
   GitHubOidcProviderArn:
     Type: String
     Description: ARN of the account's token.actions.githubusercontent.com OIDC provider
@@ -203,7 +209,7 @@ Resources:
             Condition:
               StringEquals:
                 token.actions.githubusercontent.com:aud: sts.amazonaws.com
-                token.actions.githubusercontent.com:sub: !Sub 'repo:${GitHubOrg}/${GitHubRepo}:environment:production'
+                token.actions.githubusercontent.com:sub: !Sub 'repo:${GitHubOrg}@${GitHubOrgId}/${GitHubRepo}@${GitHubRepoId}:environment:production'
               StringLike:
                 token.actions.githubusercontent.com:ref:
                   - refs/heads/main

@@ -112,8 +112,10 @@ stack outputs the two role ARNs. Add these GitHub **production environment varia
 Configure the GitHub `production` environment to allow only `v*` deployment tags and,
 if desired, require a reviewer. The IAM trust policy independently requires both that
 environment and either `main` (for a manual run) or a `v*` ref (for a release) in
-`rot13maxi/pane.run`. Change the template parameters if the repository is moved. Do not
-put these values in secrets: they are identifiers, not credentials.
+`rot13maxi/pane.run`. The trust also includes GitHub's immutable owner and repository
+IDs, preventing a renamed or deleted repository name from being reused to assume the
+role. Change the template parameters if the repository is moved. Do not put these values
+in secrets: they are identifiers, not credentials.
 
 After bootstrapping, pass the execution role once on a local deployment if the existing
 application stack has not yet been associated with it:
