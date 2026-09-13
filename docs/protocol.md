@@ -55,3 +55,10 @@ The normal creation fields are returned with an additional `import` object
 containing the source surface ID, selected protocol, and translation warnings.
 Initial values resolved through A2UI data bindings are installed as revision-zero
 Surface state.
+
+## Waiting from the CLI
+
+`pane wait <id> [--timeout DURATION]` polls the agent-facing results endpoint until
+the result status is `submitted`, then prints that result. A zero or omitted timeout
+waits indefinitely. This is intentionally a CLI behavior rather than a separate HTTP
+endpoint; clients can use the same bounded polling approach.

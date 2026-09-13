@@ -85,15 +85,17 @@ its stable ID, JSON shape, constraints, and allowed choices remain compatible.
 
 ```sh
 pane create spec.json
+pane wait <id> --timeout 30m
 pane results <id>
 pane update <id> spec.json
 pane close <id>
 pane delete <id>
 ```
 
-`pane results` returns the shallow agent-facing result object. Use `pane read`
-only when inspecting the full stored specification and management document is
-necessary.
+`pane wait` polls until submission and returns the shallow agent-facing result object;
+omit its timeout to wait indefinitely. `pane results` returns the same shape
+immediately as a snapshot. Use `pane read` only when inspecting the full stored
+specification and management document is necessary.
 
 To upload local media, reference `asset:<name>` in the JSON and bind it during create:
 

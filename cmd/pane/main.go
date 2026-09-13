@@ -2,6 +2,7 @@ package main
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"errors"
 	"flag"
@@ -65,6 +66,8 @@ func run(args []string, stdout, stderr io.Writer) error {
 		return managed(http.MethodGet, "", args[1:], stdout)
 	case "results":
 		return managed(http.MethodGet, "/results", args[1:], stdout)
+	case "wait":
+		return wait(args[1:], stdout)
 	case "update":
 		return update(args[1:], stdout)
 	case "close":
@@ -96,6 +99,7 @@ func usage(w io.Writer) {
 
   pane create [document] [--format surface|a2ui] [--title TITLE] [--server URL] [--asset name=path]
   pane results <id> [--server URL] [--token TOKEN]
+  pane wait <id> [--timeout DURATION] [--server URL] [--token TOKEN]
   pane read <id> [--server URL] [--token TOKEN]
   pane update <id> <spec.json> [--server URL] [--token TOKEN]
   pane close <id> [--server URL] [--token TOKEN]
@@ -301,6 +305,70 @@ func managed(method, suffix string, args []string, out io.Writer) error {
 	return pretty(out, body)
 }
 
+func wait(args []string, out io.Writer) error {
+	fs, server, token := managedFlags("wait")
+	timeout := fs.Duration("timeout", 0, "maximum time to wait; 0 waits indefinitely")
+	if err := parseFlags(fs, args); err != nil {
+		if errors.Is(err, flag.ErrHelp) {
+			return nil
+		}
+		return err
+	}
+	if fs.NArg() != 1 {
+		return errors.New("wait requires a surface id")
+	}
+	if *timeout < 0 {
+		return errors.New("--timeout must not be negative")
+	}
+	r, err := resolveReceipt(fs.Arg(0), *server, *token)
+	if err != nil {
+		return err
+	}
+	ctx := context.Background()
+	cancel := func() {}
+	if *timeout > 0 {
+		ctx, cancel = context.WithTimeout(ctx, *timeout)
+	}
+	defer cancel()
+	return waitForSubmission(ctx, newClient(r.Server), r, time.Second, out)
+}
+
+func waitForSubmission(ctx context.Context, c client, r receipt, interval time.Duration, out io.Writer) error {
+	path := "/api/v1/surfaces/" + url.PathEscape(r.ID) + "/results"
+	for {
+		body, err := c.requestContext(ctx, http.MethodGet, path, r.ManagementToken, "application/json", nil)
+		if err != nil {
+			if errors.Is(ctx.Err(), context.DeadlineExceeded) {
+				return errors.New("timed out waiting for surface submission")
+			}
+			return err
+		}
+		var result schema.Result
+		if err := json.Unmarshal(body, &result); err != nil {
+			return fmt.Errorf("invalid results response: %w", err)
+		}
+		switch result.Status {
+		case schema.StatusSubmitted:
+			return pretty(out, body)
+		case schema.StatusClosed:
+			return errors.New("surface was closed before submission")
+		case schema.StatusActive:
+		default:
+			return fmt.Errorf("invalid results response: unknown status %q", result.Status)
+		}
+
+		timer := time.NewTimer(interval)
+		select {
+		case <-ctx.Done():
+			if !timer.Stop() {
+				<-timer.C
+			}
+			return errors.New("timed out waiting for surface submission")
+		case <-timer.C:
+		}
+	}
+}
+
 func managedFlags(name string) (*flag.FlagSet, *string, *string) {
 	fs := flag.NewFlagSet(name, flag.ContinueOnError)
 	fs.SetOutput(io.Discard)
@@ -357,7 +425,11 @@ func newClient(server string) client {
 }
 
 func (c client) request(method, path, token, contentType string, body []byte) ([]byte, error) {
-	req, err := http.NewRequest(method, c.server+path, bytes.NewReader(body))
+	return c.requestContext(context.Background(), method, path, token, contentType, body)
+}
+
+func (c client) requestContext(ctx context.Context, method, path, token, contentType string, body []byte) ([]byte, error) {
+	req, err := http.NewRequestWithContext(ctx, method, c.server+path, bytes.NewReader(body))
 	if err != nil {
 		return nil, err
 	}

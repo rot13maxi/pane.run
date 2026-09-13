@@ -2,6 +2,7 @@ package main
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"errors"
 	"flag"
@@ -14,6 +15,7 @@ import (
 	"reflect"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/agent-surface/agent-surface/internal/schema"
 )
@@ -467,6 +469,79 @@ func TestResultsReturnsOnlyAgentFriendlyResult(t *testing.T) {
 	}
 	if _, exists := got["spec"]; exists {
 		t.Fatalf("results leaked authoring data: %#v", got)
+	}
+}
+
+func TestWaitPollsUntilSubmittedAndReturnsResult(t *testing.T) {
+	var requests int
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		requests++
+		if r.Method != http.MethodGet || r.URL.Path != "/api/v1/surfaces/s-wait/results" {
+			t.Fatalf("request %s %s", r.Method, r.URL.Path)
+		}
+		if r.Header.Get("Authorization") != "Bearer secret" {
+			t.Fatal("missing management token")
+		}
+		status := schema.StatusActive
+		if requests == 2 {
+			status = schema.StatusSubmitted
+		}
+		json.NewEncoder(w).Encode(schema.Result{Status: status, Revision: uint64(requests), Values: map[string]any{"decision": "approve"}})
+	}))
+	defer server.Close()
+
+	var out bytes.Buffer
+	err := waitForSubmission(context.Background(), newClient(server.URL), receipt{ID: "s-wait", ManagementToken: "secret"}, time.Millisecond, &out)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var got schema.Result
+	if err := json.Unmarshal(out.Bytes(), &got); err != nil {
+		t.Fatal(err)
+	}
+	if requests != 2 || got.Status != schema.StatusSubmitted || got.Revision != 2 || got.Values["decision"] != "approve" {
+		t.Fatalf("requests=%d result=%#v", requests, got)
+	}
+}
+
+func TestWaitHonorsTimeout(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		json.NewEncoder(w).Encode(schema.Result{Status: schema.StatusActive, Values: map[string]any{}})
+	}))
+	defer server.Close()
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Millisecond)
+	defer cancel()
+	err := waitForSubmission(ctx, newClient(server.URL), receipt{ID: "s-wait", ManagementToken: "secret"}, time.Hour, io.Discard)
+	if err == nil || err.Error() != "timed out waiting for surface submission" {
+		t.Fatalf("error=%v", err)
+	}
+}
+
+func TestWaitRejectsClosedSurface(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		json.NewEncoder(w).Encode(schema.Result{Status: schema.StatusClosed, Values: map[string]any{}})
+	}))
+	defer server.Close()
+	err := waitForSubmission(context.Background(), newClient(server.URL), receipt{ID: "s-wait", ManagementToken: "secret"}, time.Hour, io.Discard)
+	if err == nil || err.Error() != "surface was closed before submission" {
+		t.Fatalf("error=%v", err)
+	}
+}
+
+func TestWaitCommandSupportsTrailingTimeout(t *testing.T) {
+	t.Setenv("PANE_CONFIG_DIR", t.TempDir())
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		json.NewEncoder(w).Encode(schema.Result{Status: schema.StatusSubmitted, Values: map[string]any{}})
+	}))
+	defer server.Close()
+	if err := saveReceipt(receipt{ID: "s-wait", Server: server.URL, ManagementToken: "secret"}); err != nil {
+		t.Fatal(err)
+	}
+	if err := run([]string{"wait", "s-wait", "--timeout", "1s"}, io.Discard, io.Discard); err != nil {
+		t.Fatal(err)
+	}
+	if err := run([]string{"wait", "s-wait", "--timeout", "-1s"}, io.Discard, io.Discard); err == nil || !strings.Contains(err.Error(), "must not be negative") {
+		t.Fatalf("negative timeout error=%v", err)
 	}
 }
 

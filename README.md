@@ -78,16 +78,18 @@ pane create examples/gallery.json
 pane update <id> examples/gallery.json
 ```
 
-When the person has interacted with the page, bring their structured response back
-into the agent loop with:
+When the person has interacted with the page, block until they submit and bring their
+structured response back into the agent loop with:
 
 ```sh
-pane results <id>
+pane wait <id> --timeout 30m
 ```
 
-The command returns only stable result JSON: `status`, `revision`, `values`, and
-lifecycle timestamps. It uses the private receipt saved at creation, so the ID is
-normally all it needs.
+The command polls modestly and returns only stable result JSON: `status`, `revision`,
+`values`, and lifecycle timestamps. The timeout covers the entire wait; omit it (or
+use `--timeout 0`) to wait indefinitely. Use `pane results <id>` for a single,
+non-blocking read. Both commands use the private receipt saved at creation, so the ID
+is normally all they need.
 
 ## Local development
 
