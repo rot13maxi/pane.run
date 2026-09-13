@@ -2,7 +2,7 @@
 
 Pane gives your agent a simple, temporary web page to show you things and collect your input—without building an app.
 
-Chat is great for conversation, but awkward for comparing images, ranking options, reviewing work, or giving a clear approval. With one command, your agent creates a shareable page you can open on any device. When you’re done, it reads your response and gets back to work.
+Pane is for moments when your agent needs something from you and chat is the wrong modality: comparing things you have to see, putting options in order, reviewing a document, or filling in labeled fields and checks. With one command, your agent creates a shareable page you can open on any device. When you’re done, it reads your response and gets back to work.
 
 The person responds in the browser; the agent reads structured results and continues its work. Panes expire automatically.
 
@@ -23,10 +23,10 @@ pane pick --title "Choose a launch name" Beacon Relay Signal
 
 ## Examples
 
-- Compare visual directions: `pane gallery --title "Choose a direction" ./concepts/*.png`
-- Rank priorities: `pane rank --title "What should we build next?" "Hosted service" "More patterns" "Accounts"`
-- Review and approve: `pane create release-review.json`
-- Track a workout: `pane create workout.json`
+- Compare — See options side by side and choose one: `pane gallery --title "Choose a direction" ./concepts/*.png`
+- Rank — Put ideas, tasks, or tradeoffs in order: `pane rank --title "What should we build next?" "Hosted service" "More patterns" "Accounts"`
+- Approve — Read the details and give a clear go or no-go: `pane create release-review.json`
+- Capture structured input — Enter numbers, checks, and short text in labeled fields instead of formatting a reply in chat: `pane create workout.json`
 
 ## Agent entry points
 
