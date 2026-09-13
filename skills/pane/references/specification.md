@@ -75,6 +75,13 @@ also have `help` and `required`. Selection bounds are `min_selections` and
 add optional `image`, and gallery items require one. Each options or items list must
 contain 1–100 entries with unique values.
 
+A ranking result is a permutation of the authored item values: every item appears
+exactly once, with no duplicates, omissions, or write-ins. Select and multi-select
+results likewise accept only authored option values.
+
+Ranking state starts in the authored item order, so the displayed initial order is a
+real result even when the respondent submits without moving an item.
+
 `components` must be non-empty. Sections are semantic groups, may nest four levels,
 and do not control layout. A surface supports at most 200 components and 200 state
 keys. Partial autosaves validate present values without enforcing `required`;

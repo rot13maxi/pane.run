@@ -67,8 +67,10 @@ whole pipeline; when scripting, inspect the final envelope before sharing its UR
 The first add replaces the empty surface placeholder. The first interactive component
 also enables a `Done` action automatically. `pick` is an agent-friendly alias for a
 single select, and `sort` is an alias for a ranking list. Recipes and spec-free
-`pane create` also accepts `--theme light|dark|system`. Use a person's remembered
-preference when known; otherwise omit `--theme` so the page follows their system.
+`pane create` accept `--theme light|dark|system`. A later `pane add` can also set or
+change the surface theme, so a pipeline may make the presentation choice on its final
+addition. Use a person's remembered preference when known; otherwise omit `--theme`
+so the page follows their system.
 
 Use a complete JSON document when a recipe or a few `pane add` commands would be
 more cumbersome. JSON remains the stable protocol and update format:
@@ -87,9 +89,10 @@ pane wait <id> --timeout 30m
 
 The command polls modestly and returns only stable result JSON: `status`, `revision`,
 `values`, and lifecycle timestamps. The timeout covers the entire wait; omit it (or
-use `--timeout 0`) to wait indefinitely. Use `pane results <id>` for a single,
-non-blocking read. Both commands use the private receipt saved at creation, so the ID
-is normally all they need.
+use `--timeout 0`) to wait indefinitely. On timeout it exits nonzero and writes a
+machine-readable `{"status":"timeout","id":"..."}` marker to standard output. Use
+`pane results <id>` for a single, non-blocking read. Both commands use the private
+receipt saved at creation, so the ID is normally all they need.
 
 ## Local development
 

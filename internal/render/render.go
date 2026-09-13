@@ -80,7 +80,7 @@ func Render(w io.Writer, page Page) error {
 		Submit   string         `json:"submit_url"`
 		Reset    string         `json:"reset_url"`
 		ReadOnly bool           `json:"read_only"`
-	}{page.Result.Revision, page.Result.Values, page.Result.Status, page.StateURL, page.SubmitURL, page.ResetURL, page.ReadOnly || page.Result.Status == schema.StatusClosed})
+	}{page.Result.Revision, page.Result.Values, page.Result.Status, page.StateURL, page.SubmitURL, page.ResetURL, page.ReadOnly || page.Result.Status == schema.StatusClosed || page.Result.Status == schema.StatusSubmitted})
 	if err != nil {
 		return fmt.Errorf("encode initial state: %w", err)
 	}

@@ -245,7 +245,7 @@ func (h *Handler) publish(s store.Surface) error {
 	}
 	var page strings.Builder
 	root := "/api/v1/public/" + s.PublicID
-	if err := render.Render(&page, render.Page{Spec: s.Spec, Result: s.Result, PublicID: s.PublicID, StateURL: root + "/state", SubmitURL: root + "/submit", ResetURL: root + "/reset", ReadOnly: s.ClosedAt != nil}); err != nil {
+	if err := render.Render(&page, render.Page{Spec: s.Spec, Result: s.Result, PublicID: s.PublicID, StateURL: root + "/state", SubmitURL: root + "/submit", ResetURL: root + "/reset", ReadOnly: s.ClosedAt != nil || s.Result.Status == schema.StatusSubmitted}); err != nil {
 		return err
 	}
 	return h.pages.PutPage(s, []byte(page.String()))
@@ -373,7 +373,7 @@ func (h *Handler) page(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
 	w.Header().Set("Cache-Control", "no-store")
 	root := "/api/v1/public/" + s.PublicID
-	if e := render.Render(w, render.Page{Spec: s.Spec, Result: s.Result, PublicID: s.PublicID, StateURL: root + "/state", SubmitURL: root + "/submit", ResetURL: root + "/reset", ReadOnly: s.ClosedAt != nil}); e != nil {
+	if e := render.Render(w, render.Page{Spec: s.Spec, Result: s.Result, PublicID: s.PublicID, StateURL: root + "/state", SubmitURL: root + "/submit", ResetURL: root + "/reset", ReadOnly: s.ClosedAt != nil || s.Result.Status == schema.StatusSubmitted}); e != nil {
 		h.log.Printf("render: %v", e)
 	}
 }
@@ -401,7 +401,7 @@ func managementView(s store.Surface, base string) map[string]any {
 	return map[string]any{"id": s.ID, "public_id": s.PublicID, "url": base + "/s/" + s.PublicID, "spec": s.Spec, "result": s.Result, "created_at": s.CreatedAt, "expires_at": s.ExpiresAt, "closed_at": s.ClosedAt, "assets": s.Assets}
 }
 func publicView(s store.Surface) map[string]any {
-	return map[string]any{"result": s.Result, "closed": s.ClosedAt != nil, "expires_at": s.ExpiresAt}
+	return map[string]any{"result": s.Result, "closed": s.ClosedAt != nil || s.Result.Status == schema.StatusSubmitted, "expires_at": s.ExpiresAt}
 }
 
 func bearer(r *http.Request) string {
@@ -449,6 +449,8 @@ func (h *Handler) storeError(w http.ResponseWriter, err error, current *store.Su
 		writeError(w, 410, "expired", "surface has expired")
 	case errors.Is(err, store.ErrClosed):
 		writeError(w, 409, "closed", "surface is closed")
+	case errors.Is(err, store.ErrSubmitted):
+		writeError(w, 409, "submitted", "surface has already been submitted")
 	case errors.Is(err, store.ErrConflict):
 		if current != nil {
 			writeJSON(w, 409, map[string]any{"error": map[string]string{"code": "revision_conflict", "message": "state revision is stale"}, "result": current.Result})

@@ -63,20 +63,20 @@ func run(args []string, stdout, stderr io.Writer) error {
 	case "add":
 		return add(args[1:], os.Stdin, stdout)
 	case "read":
-		return managed(http.MethodGet, "", args[1:], stdout)
+		return managed("read", http.MethodGet, "", args[1:], stdout)
 	case "results":
-		return managed(http.MethodGet, "/results", args[1:], stdout)
+		return managed("results", http.MethodGet, "/results", args[1:], stdout)
 	case "wait":
 		return wait(args[1:], stdout)
 	case "update":
 		return update(args[1:], stdout)
 	case "close":
-		return managed(http.MethodPost, "/close", args[1:], stdout)
+		return managed("close", http.MethodPost, "/close", args[1:], stdout)
 	case "delete":
-		return managed(http.MethodDelete, "", args[1:], stdout)
+		return managed("delete", http.MethodDelete, "", args[1:], stdout)
 	case "skill":
 		return skill(args[1:], stdout)
-	case "version":
+	case "version", "--version":
 		fmt.Fprintf(stdout, "pane %s (commit %s, built %s)\n", version, commit, buildDate)
 		return nil
 	case "help", "-h", "--help":
@@ -89,6 +89,7 @@ func run(args []string, stdout, stderr io.Writer) error {
 }
 
 func usage(w io.Writer) {
+	fmt.Fprintf(w, "pane %s\n\n", version)
 	fmt.Fprintln(w, `Usage:
   pane gallery [options] <image>...
   pane pick [options] <choice>...
@@ -260,8 +261,12 @@ func createDocument(c client, spec []byte, assets []string, out io.Writer) error
 }
 
 func update(args []string, out io.Writer) error {
-	fs, server, token := managedFlags("update")
+	fs, server, token := managedFlags("update", out)
+	fs.Usage = func() { managedUsage(fs, out, "update <id> <spec.json>") }
 	if err := parseFlags(fs, args); err != nil {
+		if errors.Is(err, flag.ErrHelp) {
+			return nil
+		}
 		return err
 	}
 	if fs.NArg() != 2 {
@@ -282,9 +287,13 @@ func update(args []string, out io.Writer) error {
 	return pretty(out, response)
 }
 
-func managed(method, suffix string, args []string, out io.Writer) error {
-	fs, server, token := managedFlags(strings.ToLower(method))
+func managed(name, method, suffix string, args []string, out io.Writer) error {
+	fs, server, token := managedFlags(name, out)
+	fs.Usage = func() { managedUsage(fs, out, name+" <id>") }
 	if err := parseFlags(fs, args); err != nil {
+		if errors.Is(err, flag.ErrHelp) {
+			return nil
+		}
 		return err
 	}
 	if fs.NArg() != 1 {
@@ -299,14 +308,34 @@ func managed(method, suffix string, args []string, out io.Writer) error {
 		return err
 	}
 	if len(body) == 0 {
+		if method == http.MethodDelete {
+			if err := removeReceipt(r.ID); err != nil {
+				return fmt.Errorf("surface deleted but receipt could not be removed: %w", err)
+			}
+		}
 		_, err = fmt.Fprintln(out, `{"ok":true}`)
 		return err
+	}
+	if suffix == "/close" {
+		var closed struct {
+			ID     string        `json:"id"`
+			URL    string        `json:"url"`
+			Result schema.Result `json:"result"`
+		}
+		if err := json.Unmarshal(body, &closed); err != nil {
+			return fmt.Errorf("invalid close response: %w", err)
+		}
+		return writeAddEnvelope(out, addEnvelope{ID: closed.ID, URL: closed.URL, Revision: closed.Result.Revision, Status: closed.Result.Status})
 	}
 	return pretty(out, body)
 }
 
 func wait(args []string, out io.Writer) error {
-	fs, server, token := managedFlags("wait")
+	fs, server, token := managedFlags("wait", out)
+	fs.Usage = func() {
+		fmt.Fprintln(out, "Usage: pane wait <id> [--timeout DURATION] [--server URL] [--token TOKEN]")
+		fs.PrintDefaults()
+	}
 	timeout := fs.Duration("timeout", 0, "maximum time to wait; 0 waits indefinitely")
 	if err := parseFlags(fs, args); err != nil {
 		if errors.Is(err, flag.ErrHelp) {
@@ -339,7 +368,7 @@ func waitForSubmission(ctx context.Context, c client, r receipt, interval time.D
 		body, err := c.requestContext(ctx, http.MethodGet, path, r.ManagementToken, "application/json", nil)
 		if err != nil {
 			if errors.Is(ctx.Err(), context.DeadlineExceeded) {
-				return errors.New("timed out waiting for surface submission")
+				return waitTimeout(out, r.ID)
 			}
 			return err
 		}
@@ -363,18 +392,30 @@ func waitForSubmission(ctx context.Context, c client, r receipt, interval time.D
 			if !timer.Stop() {
 				<-timer.C
 			}
-			return errors.New("timed out waiting for surface submission")
+			return waitTimeout(out, r.ID)
 		case <-timer.C:
 		}
 	}
 }
 
-func managedFlags(name string) (*flag.FlagSet, *string, *string) {
+func waitTimeout(out io.Writer, id string) error {
+	if err := json.NewEncoder(out).Encode(map[string]string{"status": "timeout", "id": id}); err != nil {
+		return fmt.Errorf("write timeout result: %w", err)
+	}
+	return errors.New("timed out waiting for surface submission")
+}
+
+func managedFlags(name string, out io.Writer) (*flag.FlagSet, *string, *string) {
 	fs := flag.NewFlagSet(name, flag.ContinueOnError)
-	fs.SetOutput(io.Discard)
+	fs.SetOutput(out)
 	server := fs.String("server", env("PANE_SERVER", ""), "service URL")
 	token := fs.String("token", env("PANE_TOKEN", ""), "management token")
 	return fs, server, token
+}
+
+func managedUsage(fs *flag.FlagSet, out io.Writer, command string) {
+	fmt.Fprintf(out, "Usage: pane %s [--server URL] [--token TOKEN]\n", command)
+	fs.PrintDefaults()
 }
 
 func reorderFlags(args []string) []string {
@@ -545,6 +586,18 @@ func saveReceipt(r receipt) error {
 	}
 	data, _ := json.MarshalIndent(r, "", "  ")
 	return os.WriteFile(filepath.Join(dir, r.ID+".json"), data, 0600)
+}
+
+func removeReceipt(id string) error {
+	dir, err := configDir()
+	if err != nil {
+		return err
+	}
+	err = os.Remove(filepath.Join(dir, id+".json"))
+	if errors.Is(err, os.ErrNotExist) {
+		return nil
+	}
+	return err
 }
 
 func resolveReceipt(id, server, token string) (receipt, error) {

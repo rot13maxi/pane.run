@@ -40,6 +40,23 @@ func TestVersionReportsBuildMetadata(t *testing.T) {
 	if got, want := out.String(), "pane v1.2.3 (commit abc123, built 2026-09-12T00:00:00Z)\n"; got != want {
 		t.Fatalf("version output = %q, want %q", got, want)
 	}
+	out.Reset()
+	if err := run([]string{"--version"}, &out, io.Discard); err != nil {
+		t.Fatal(err)
+	}
+	if got, want := out.String(), "pane v1.2.3 (commit abc123, built 2026-09-12T00:00:00Z)\n"; got != want {
+		t.Fatalf("--version output = %q, want %q", got, want)
+	}
+}
+
+func TestHelpIncludesVersion(t *testing.T) {
+	var out bytes.Buffer
+	if err := run([]string{"help"}, &out, io.Discard); err != nil {
+		t.Fatal(err)
+	}
+	if !strings.HasPrefix(out.String(), "pane "+version+"\n") {
+		t.Fatalf("help omitted version: %q", out.String())
+	}
 }
 
 func TestDefaultServerIsHostedService(t *testing.T) {
@@ -223,6 +240,20 @@ func TestRecipeHelpWorksWithoutServiceCall(t *testing.T) {
 	}
 }
 
+func TestManagedCommandHelpWorksWithoutServiceCall(t *testing.T) {
+	for _, command := range []string{"read", "results", "update", "close", "delete", "wait"} {
+		t.Run(command, func(t *testing.T) {
+			var out bytes.Buffer
+			if err := run([]string{command, "--help"}, &out, io.Discard); err != nil {
+				t.Fatal(err)
+			}
+			if !strings.Contains(out.String(), "Usage: pane "+command) {
+				t.Fatalf("help=%q", out.String())
+			}
+		})
+	}
+}
+
 func TestRecipeInteractionsRequiredByDefaultWithOptionalEscape(t *testing.T) {
 	var specs []schema.Spec
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -400,6 +431,73 @@ func TestAddExplicitIDReturnsChainableEnvelope(t *testing.T) {
 	}
 }
 
+func TestAddCanSetTheme(t *testing.T) {
+	t.Setenv("PANE_CONFIG_DIR", t.TempDir())
+	spec := schema.Spec{Version: schema.Version, Title: "Draft", Components: []schema.Component{{Kind: schema.KindDivider}}}
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		if r.Method == http.MethodGet {
+			json.NewEncoder(w).Encode(map[string]any{"id": "s-theme", "spec": spec, "result": schema.Result{Status: schema.StatusActive}})
+			return
+		}
+		var updated schema.Spec
+		if err := json.NewDecoder(r.Body).Decode(&updated); err != nil {
+			t.Fatal(err)
+		}
+		if updated.Presentation.ColorScheme != "dark" {
+			t.Fatalf("theme=%q", updated.Presentation.ColorScheme)
+		}
+		json.NewEncoder(w).Encode(map[string]any{"id": "s-theme", "url": "https://example/s/theme", "spec": updated, "result": schema.Result{Status: schema.StatusActive}})
+	}))
+	defer server.Close()
+	if err := saveReceipt(receipt{ID: "s-theme", Server: server.URL, ManagementToken: "secret"}); err != nil {
+		t.Fatal(err)
+	}
+	if err := add([]string{"--theme", "dark", "s-theme", "heading", "Review"}, nil, io.Discard); err != nil {
+		t.Fatal(err)
+	}
+}
+
+func TestRecipeValuesUseSuffixesOnlyForCollisions(t *testing.T) {
+	options := optionsFrom([]string{"Alpha", "Beta", "Alpha"})
+	want := []string{"alpha", "beta", "alpha_2"}
+	for i := range options {
+		if options[i].Value != want[i] {
+			t.Fatalf("options=%#v", options)
+		}
+	}
+}
+
+func TestCloseIsCompactAndDeleteRemovesReceipt(t *testing.T) {
+	config := t.TempDir()
+	t.Setenv("PANE_CONFIG_DIR", config)
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		if r.Method == http.MethodPost {
+			io.WriteString(w, `{"id":"s-life","url":"https://example/s/public","spec":{"title":"must not leak"},"result":{"status":"closed","revision":4,"values":{}}}`)
+			return
+		}
+		w.WriteHeader(http.StatusNoContent)
+	}))
+	defer server.Close()
+	if err := saveReceipt(receipt{ID: "s-life", Server: server.URL, ManagementToken: "secret"}); err != nil {
+		t.Fatal(err)
+	}
+	var out bytes.Buffer
+	if err := run([]string{"close", "s-life"}, &out, io.Discard); err != nil {
+		t.Fatal(err)
+	}
+	if got, want := out.String(), "{\"id\":\"s-life\",\"url\":\"https://example/s/public\",\"revision\":4,\"status\":\"closed\"}\n"; got != want {
+		t.Fatalf("close=%q want=%q", got, want)
+	}
+	if err := run([]string{"delete", "s-life"}, io.Discard, io.Discard); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := os.Stat(filepath.Join(config, "s-life.json")); !errors.Is(err, os.ErrNotExist) {
+		t.Fatalf("receipt remains: %v", err)
+	}
+}
+
 func TestCreateA2UIUsesImportEndpoint(t *testing.T) {
 	input := filepath.Join(t.TempDir(), "surface.jsonl")
 	if err := os.WriteFile(input, []byte(`{"version":"v0.9"}`), 0600); err != nil {
@@ -511,9 +609,23 @@ func TestWaitHonorsTimeout(t *testing.T) {
 	defer server.Close()
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Millisecond)
 	defer cancel()
-	err := waitForSubmission(ctx, newClient(server.URL), receipt{ID: "s-wait", ManagementToken: "secret"}, time.Hour, io.Discard)
+	var out bytes.Buffer
+	err := waitForSubmission(ctx, newClient(server.URL), receipt{ID: "s-wait", ManagementToken: "secret"}, time.Hour, &out)
 	if err == nil || err.Error() != "timed out waiting for surface submission" {
 		t.Fatalf("error=%v", err)
+	}
+	if got, want := out.String(), "{\"id\":\"s-wait\",\"status\":\"timeout\"}\n"; got != want {
+		t.Fatalf("timeout output=%q want=%q", got, want)
+	}
+}
+
+func TestWaitHelpPrintsUsage(t *testing.T) {
+	var out bytes.Buffer
+	if err := run([]string{"wait", "--help"}, &out, io.Discard); err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(out.String(), "Usage: pane wait") || !strings.Contains(out.String(), "-timeout") {
+		t.Fatalf("wait help=%q", out.String())
 	}
 }
 

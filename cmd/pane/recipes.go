@@ -76,11 +76,16 @@ func recipe(name string, args []string, out io.Writer) error {
 			return errors.New("gallery requires at least one image path")
 		}
 		items := make([]schema.Item, len(values))
+		labels := make([]string, len(values))
+		paths := make([]string, len(values))
 		for i, arg := range values {
-			label, path := galleryArg(arg)
+			labels[i], paths[i] = galleryArg(arg)
+		}
+		itemValues := uniqueValues(labels)
+		for i := range values {
 			assetName := fmt.Sprintf("image_%d", i+1)
-			items[i] = schema.Item{Value: uniqueValue(label, i), Label: label, Image: "asset:" + assetName}
-			assets = append(assets, assetName+"="+path)
+			items[i] = schema.Item{Value: itemValues[i], Label: labels[i], Image: "asset:" + assetName}
+			assets = append(assets, assetName+"="+paths[i])
 		}
 		max := intPtr(1)
 		if multi {
@@ -179,20 +184,33 @@ func valueFor(s string, i int) string {
 	}
 	return v
 }
-func uniqueValue(label string, i int) string { return valueFor(label, i) + "_" + strconv.Itoa(i+1) }
 func optionsFrom(values []string) []schema.Option {
 	r := make([]schema.Option, len(values))
-	for i, v := range values {
-		r[i] = schema.Option{Value: uniqueValue(v, i), Label: v}
+	for i, value := range uniqueValues(values) {
+		r[i] = schema.Option{Value: value, Label: values[i]}
 	}
 	return r
 }
 func itemsFrom(values []string) []schema.Item {
 	r := make([]schema.Item, len(values))
-	for i, v := range values {
-		r[i] = schema.Item{Value: uniqueValue(v, i), Label: v}
+	for i, value := range uniqueValues(values) {
+		r[i] = schema.Item{Value: value, Label: values[i]}
 	}
 	return r
+}
+func uniqueValues(labels []string) []string {
+	result := make([]string, len(labels))
+	used := map[string]bool{}
+	for i, label := range labels {
+		base := valueFor(label, i)
+		value := base
+		for n := 2; used[value]; n++ {
+			value = base + "_" + strconv.Itoa(n)
+		}
+		used[value] = true
+		result[i] = value
+	}
+	return result
 }
 func availableID(components []schema.Component, base string) string {
 	used := map[string]bool{}
@@ -214,22 +232,11 @@ type addEnvelope struct {
 }
 
 func add(args []string, in io.Reader, out io.Writer) error {
-	if len(args) > 0 && (args[0] == "--help" || args[0] == "-h") {
-		addUsage(out)
-		return nil
-	}
-	if len(args) < 2 {
-		return errors.New("add requires a surface id and component kind; run pane add --help")
-	}
-	surfaceID, err := addSurfaceID(args[0], in)
-	if err != nil {
-		return err
-	}
-	kind := args[1]
-	fs := flag.NewFlagSet("add "+kind, flag.ContinueOnError)
+	fs := flag.NewFlagSet("add", flag.ContinueOnError)
 	fs.SetOutput(out)
 	server := fs.String("server", env("PANE_SERVER", ""), "service URL")
 	token := fs.String("token", env("PANE_TOKEN", ""), "management token")
+	theme := fs.String("theme", "", "set surface theme: light, dark, or system")
 	id := fs.String("id", "", "result key (inferred from label if omitted)")
 	label := fs.String("label", "", "component label")
 	help := fs.String("hint", "", "help text")
@@ -240,13 +247,21 @@ func add(args []string, in io.Reader, out io.Writer) error {
 	max := fs.Float64("max", 0, "maximum number")
 	hasMin, hasMax := flagPresent(args, "min"), flagPresent(args, "max")
 	fs.Usage = func() { addUsage(out) }
-	if err := parseFlags(fs, args[2:]); err != nil {
+	if err := parseFlags(fs, args); err != nil {
 		if errors.Is(err, flag.ErrHelp) {
 			return nil
 		}
 		return err
 	}
-	values := fs.Args()
+	positionals := fs.Args()
+	if len(positionals) < 2 {
+		return errors.New("add requires a surface id and component kind; run pane add --help")
+	}
+	surfaceID, err := addSurfaceID(positionals[0], in)
+	if err != nil {
+		return err
+	}
+	kind, values := positionals[1], positionals[2:]
 	r, err := resolveReceipt(surfaceID, *server, *token)
 	if err != nil {
 		return err
@@ -259,6 +274,12 @@ func add(args []string, in io.Reader, out io.Writer) error {
 	var current schema.SurfaceResponse
 	if err := json.Unmarshal(data, &current); err != nil {
 		return fmt.Errorf("invalid surface response: %w", err)
+	}
+	if *theme != "" {
+		current.Spec.Presentation.ColorScheme = *theme
+		if err := schema.ValidateSpec(&current.Spec); err != nil {
+			return fmt.Errorf("invalid --theme: %w", err)
+		}
 	}
 	component, assetPath, err := componentFromAdd(kind, values, *id, *label, *help, *placeholder, *required, *level, hasMin, *min, hasMax, *max, current.Spec.Components)
 	if err != nil {
@@ -447,6 +468,6 @@ func addUsage(w io.Writer) {
   pane add <id|-> divider
 
 Use - as the surface id to read the previous create/add JSON from stdin.
-Common options: --id, --label, --hint, --required, --server, --token
+Common options: --id, --label, --hint, --required, --theme, --server, --token
 Input options: --placeholder; number options: --min, --max; heading: --level`)
 }

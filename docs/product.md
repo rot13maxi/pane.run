@@ -30,11 +30,12 @@ agent reads the results, and the surface disappears when it's no longer needed.
 2. The CLI prints a public URL, surface ID, management token, and expiry time. It also
    writes a local receipt so later commands need only the ID.
 3. A person opens the URL on desktop or mobile. Edits auto-save. Submit changes the
-   status to `submitted` but does not lock the page.
+   status to `submitted` and permanently makes the page read-only.
 4. `pane results <id>` returns status, revision, timestamps, and values without
    mixing the response with the authoring specification.
-5. The agent may replace the specification with `pane update`; compatible values
-   survive. It may close the surface to make it read-only or delete it early.
+5. While active, the agent may replace the specification with `pane update`;
+   compatible values survive. It may close the surface without submission or delete
+   it early. Revising a submitted response requires a new surface.
 
 Recipes and incremental commands are agent UX, not separate platform concepts. They
 compile to the same declarative specification accepted by the HTTP service. Incremental
@@ -64,7 +65,7 @@ Compound interactions: checklist, gallery picker, ranking list, approval, and
 comparison. Compound primitives render polished domain-appropriate controls while
 writing ordinary JSON values under one stable component ID.
 
-Actions: submit and reset. Submit is a completion signal rather than a permanent lock.
+Actions: submit and reset. Submit is final. Reset is available only before submission.
 
 ## Success criteria
 

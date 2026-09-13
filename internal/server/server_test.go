@@ -98,6 +98,37 @@ func TestHTTPCreateRenderAndState(t *testing.T) {
 	}
 }
 
+func TestHTTPSubmissionMakesSurfaceReadOnly(t *testing.T) {
+	ts := newTestServer(t)
+	defer ts.Close()
+	client := ts.Client()
+	spec := schema.Spec{Version: schema.Version, Title: "Final", Components: []schema.Component{{ID: "choice", Kind: schema.KindSelect, Label: "Choice", Options: []schema.Option{{Value: "a", Label: "A"}}}}, Actions: schema.Actions{Submit: &schema.Action{}}}
+	_, created := requestJSON(t, client, http.MethodPost, ts.URL+"/api/v1/surfaces", spec, "")
+	publicID := created["public_id"].(string)
+	root := ts.URL + "/api/v1/public/" + publicID
+	resp, _ := requestJSON(t, client, http.MethodPut, root+"/state", map[string]any{"revision": 0, "values": map[string]any{"choice": "a"}}, "")
+	if resp.StatusCode != http.StatusOK {
+		t.Fatalf("initial state=%d", resp.StatusCode)
+	}
+	resp, submitted := requestJSON(t, client, http.MethodPost, root+"/submit", nil, "")
+	if resp.StatusCode != http.StatusOK || submitted["closed"] != true {
+		t.Fatalf("submit=%d %#v", resp.StatusCode, submitted)
+	}
+	resp, changed := requestJSON(t, client, http.MethodPut, root+"/state", map[string]any{"revision": 2, "values": map[string]any{}}, "")
+	if resp.StatusCode != http.StatusConflict || changed["error"].(map[string]any)["code"] != "submitted" {
+		t.Fatalf("write after submit=%d %#v", resp.StatusCode, changed)
+	}
+	page, err := client.Get(ts.URL + created["url"].(string))
+	if err != nil {
+		t.Fatal(err)
+	}
+	html, _ := io.ReadAll(page.Body)
+	page.Body.Close()
+	if !strings.Contains(string(html), `"read_only":true`) {
+		t.Fatalf("submitted page is not read-only: %s", html)
+	}
+}
+
 func TestAssetUpload(t *testing.T) {
 	ts := newTestServer(t)
 	defer ts.Close()

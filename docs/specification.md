@@ -68,6 +68,13 @@ Selection bounds are `min_selections` and `max_selections`. Options contain `val
 `label`, and optional `description`. Items contain those fields plus optional `image`;
 gallery items require an image. Values within a component must be unique.
 
+A ranking result is a permutation of the authored item values: every item appears
+exactly once, with no duplicates, omissions, or write-ins. Select and multi-select
+results likewise accept only authored option values.
+
+Ranking state starts in the authored item order, so the displayed initial order is a
+real result even when the respondent submits without moving an item.
+
 Sections are semantic groups, not agent-controlled layouts. They may nest to four
 levels. A surface may contain at most 200 components and 200 state keys.
 

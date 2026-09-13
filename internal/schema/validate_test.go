@@ -2,6 +2,7 @@ package schema
 
 import (
 	"errors"
+	"reflect"
 	"strings"
 	"testing"
 )
@@ -109,12 +110,25 @@ func TestValueTypesAndConstraints(t *testing.T) {
 		t.Fatal(err)
 	}
 	bad := []map[string]any{
-		{"n": 4.0}, {"b": "yes"}, {"s": "z"}, {"r": []any{"a", "a"}}, {"a": "maybe"},
+		{"n": 4.0}, {"b": "yes"}, {"s": "z"}, {"r": []any{"a", "a"}},
+		{"r": []any{"a", "b", "arbitrary_free_text_inserted_at_3"}}, {"a": "maybe"},
 	}
 	for _, values := range bad {
 		if err := ValidateValues(spec, values); err == nil {
 			t.Fatalf("accepted %#v", values)
 		}
+	}
+}
+
+func TestInitializeValuesUsesAuthoredRankingOrder(t *testing.T) {
+	spec := Spec{Components: []Component{{ID: "rank", Kind: KindRanking, Items: []Item{{Value: "a"}, {Value: "b"}}}}}
+	got := InitializeValues(spec, map[string]any{"other": true})
+	if !reflect.DeepEqual(got["rank"], []string{"a", "b"}) || got["other"] != true {
+		t.Fatalf("initialized values=%#v", got)
+	}
+	existing := InitializeValues(spec, map[string]any{"rank": []any{"b", "a"}})
+	if !reflect.DeepEqual(existing["rank"], []any{"b", "a"}) {
+		t.Fatalf("existing ranking replaced: %#v", existing)
 	}
 }
 

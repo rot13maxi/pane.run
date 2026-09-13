@@ -3,6 +3,7 @@ package store
 import (
 	"errors"
 	"path/filepath"
+	"reflect"
 	"testing"
 	"time"
 
@@ -53,6 +54,50 @@ func TestLifecycleAndPersistence(t *testing.T) {
 	}
 	if got.Result.Values["name"] != "Ada" || got.Result.Status != schema.StatusSubmitted {
 		t.Fatalf("result=%+v", got.Result)
+	}
+}
+
+func TestSubmissionIsFinal(t *testing.T) {
+	s, _ := Open(filepath.Join(t.TempDir(), "db.json"))
+	rec, token, _ := s.Create(testSpec(), time.Hour)
+	_, _ = s.WriteState(rec.PublicID, 0, map[string]any{"name": "Ada"})
+	submitted, err := s.Submit(rec.PublicID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := s.WriteState(rec.PublicID, submitted.Result.Revision, map[string]any{"name": "Grace"}); !errors.Is(err, ErrSubmitted) {
+		t.Fatalf("write after submit: %v", err)
+	}
+	if _, err := s.Reset(rec.PublicID); !errors.Is(err, ErrSubmitted) {
+		t.Fatalf("reset after submit: %v", err)
+	}
+	if _, err := s.Submit(rec.PublicID); !errors.Is(err, ErrSubmitted) {
+		t.Fatalf("resubmit: %v", err)
+	}
+	if _, err := s.Update(rec.ID, token, testSpec()); !errors.Is(err, ErrSubmitted) {
+		t.Fatalf("update after submit: %v", err)
+	}
+	closed, err := s.Close(rec.ID, token)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if closed.Result.Status != schema.StatusSubmitted || closed.Result.Values["name"] != "Ada" {
+		t.Fatalf("close changed submitted result: %#v", closed.Result)
+	}
+}
+
+func TestRankingStartsWithAuthoredOrder(t *testing.T) {
+	s, _ := Open(filepath.Join(t.TempDir(), "db.json"))
+	spec := schema.Spec{Version: schema.Version, Title: "Rank", Components: []schema.Component{{ID: "rank", Kind: schema.KindRanking, Label: "Rank", Required: true, Items: []schema.Item{{Value: "a", Label: "A"}, {Value: "b", Label: "B"}}}}}
+	rec, _, err := s.Create(spec, time.Hour)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !reflect.DeepEqual(rec.Result.Values["rank"], []any{"a", "b"}) {
+		t.Fatalf("initial ranking=%#v", rec.Result.Values["rank"])
+	}
+	if _, err := s.Submit(rec.PublicID); err != nil {
+		t.Fatalf("untouched ranking did not submit: %v", err)
 	}
 }
 

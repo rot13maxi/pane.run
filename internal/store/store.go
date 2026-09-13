@@ -22,6 +22,7 @@ var (
 	ErrForbidden = errors.New("invalid management capability")
 	ErrConflict  = errors.New("revision conflict")
 	ErrClosed    = errors.New("surface is closed")
+	ErrSubmitted = errors.New("surface is submitted")
 )
 
 type Asset struct {
@@ -103,9 +104,7 @@ func (s *Store) Create(spec schema.Spec, ttl time.Duration) (Surface, string, er
 
 // CreateWithValues creates a surface with validated initial autosave state.
 func (s *Store) CreateWithValues(spec schema.Spec, ttl time.Duration, values map[string]any) (Surface, string, error) {
-	if values == nil {
-		values = map[string]any{}
-	}
+	values = schema.InitializeValues(spec, values)
 	if err := schema.ValidateValues(spec, values); err != nil {
 		return Surface{}, "", err
 	}
@@ -169,7 +168,10 @@ func (s *Store) Update(id, management string, spec schema.Spec) (Surface, error)
 	if err != nil {
 		return Surface{}, err
 	}
-	v.Result.Values = schema.FilterCompatibleValues(v.Spec, spec, v.Result.Values)
+	if v.Result.Status == schema.StatusSubmitted {
+		return clone(v), ErrSubmitted
+	}
+	v.Result.Values = schema.InitializeValues(spec, schema.FilterCompatibleValues(v.Spec, spec, v.Result.Values))
 	v.Spec = spec
 	v.Result.Revision++
 	v.Result.UpdatedAt = s.now().UTC()
@@ -191,6 +193,9 @@ func (s *Store) WriteState(publicID string, revision uint64, values map[string]a
 	}
 	if v.ClosedAt != nil {
 		return clone(v), ErrClosed
+	}
+	if v.Result.Status == schema.StatusSubmitted {
+		return clone(v), ErrSubmitted
 	}
 	if revision != v.Result.Revision {
 		return clone(v), ErrConflict
@@ -219,6 +224,9 @@ func (s *Store) Submit(publicID string) (Surface, error) {
 	}
 	if v.ClosedAt != nil {
 		return clone(v), ErrClosed
+	}
+	if v.Result.Status == schema.StatusSubmitted {
+		return clone(v), ErrSubmitted
 	}
 	if err := schema.ValidateSubmission(v.Spec, v.Result.Values); err != nil {
 		return Surface{}, err
@@ -250,10 +258,13 @@ func (s *Store) setStatus(publicID string, status schema.Status, reset bool) (Su
 	if v.ClosedAt != nil {
 		return clone(v), ErrClosed
 	}
+	if v.Result.Status == schema.StatusSubmitted {
+		return clone(v), ErrSubmitted
+	}
 	now := s.now().UTC()
 	v.Result.Status = status
 	if reset {
-		v.Result.Values = map[string]any{}
+		v.Result.Values = schema.InitializeValues(v.Spec, nil)
 		v.Result.SubmittedAt = nil
 	}
 	if status == schema.StatusSubmitted {
@@ -277,7 +288,9 @@ func (s *Store) Close(id, management string) (Surface, error) {
 	if v.ClosedAt == nil {
 		now := s.now().UTC()
 		v.ClosedAt = &now
-		v.Result.Status = schema.StatusClosed
+		if v.Result.Status != schema.StatusSubmitted {
+			v.Result.Status = schema.StatusClosed
+		}
 		v.Result.Revision++
 		v.Result.UpdatedAt = now
 		if err := s.saveLocked(); err != nil {
@@ -308,6 +321,9 @@ func (s *Store) AddAsset(id, management, filename, contentType string, data []by
 	v, err := s.managementLocked(id, management)
 	if err != nil {
 		return Surface{}, Asset{}, err
+	}
+	if v.Result.Status == schema.StatusSubmitted {
+		return clone(v), Asset{}, ErrSubmitted
 	}
 	assetID, err := token(18)
 	if err != nil {

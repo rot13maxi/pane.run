@@ -25,13 +25,19 @@ Creation returns `id`, `url`, `management_token`, `created_at`, and `expires_at`
 - `GET /s/{public-id}` renders the surface.
 - `GET /api/v1/public/{public-id}/state` reads public state needed by the runtime.
 - `PUT /api/v1/public/{public-id}/state` replaces values using an expected revision.
-- `POST /api/v1/public/{public-id}/submit` marks the current values submitted.
-- `POST /api/v1/public/{public-id}/reset` clears values and returns to active.
+- `POST /api/v1/public/{public-id}/submit` marks the current values submitted and
+  permanently makes the surface read-only.
+- `POST /api/v1/public/{public-id}/reset` clears values and returns to active before
+  submission.
 - `GET /a/{public-id}/{asset-id}` serves an uploaded asset.
 
 State updates are JSON objects with `revision` and `values`. A stale revision returns
 HTTP 409 with the current result so the browser can reconcile rather than silently
 overwriting a newer edit.
+
+Once submitted, state writes, reset, repeat submission, definition updates, and asset
+uploads return HTTP 409 with error code `submitted`. Closing or deleting the surface
+remains permitted; closing preserves an already-submitted result and status.
 
 ## Optional A2UI compatibility import
 
@@ -60,5 +66,6 @@ Surface state.
 
 `pane wait <id> [--timeout DURATION]` polls the agent-facing results endpoint until
 the result status is `submitted`, then prints that result. A zero or omitted timeout
-waits indefinitely. This is intentionally a CLI behavior rather than a separate HTTP
-endpoint; clients can use the same bounded polling approach.
+waits indefinitely. On timeout, it writes `{"status":"timeout","id":"..."}` to
+standard output and exits nonzero. This is intentionally a CLI behavior rather than
+a separate HTTP endpoint; clients can use the same bounded polling approach.

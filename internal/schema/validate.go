@@ -398,6 +398,29 @@ func ValidateSubmission(spec Spec, values map[string]any) error {
 	return validateValues(spec, values, true)
 }
 
+// InitializeValues adds semantic defaults for interactive components that display
+// a value before the respondent interacts with them. Existing values win.
+func InitializeValues(spec Spec, values map[string]any) map[string]any {
+	result := make(map[string]any, len(values))
+	for key, value := range values {
+		result[key] = value
+	}
+	for id, component := range interactiveComponents(spec) {
+		if component.Kind != KindRanking {
+			continue
+		}
+		if _, exists := result[id]; exists {
+			continue
+		}
+		order := make([]string, len(component.Items))
+		for i, item := range component.Items {
+			order[i] = item.Value
+		}
+		result[id] = order
+	}
+	return result
+}
+
 func validateValues(spec Spec, values map[string]any, submission bool) error {
 	if len(values) > MaxStateKeys {
 		return invalid("values", "must contain at most %d keys", MaxStateKeys)

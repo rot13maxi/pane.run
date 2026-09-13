@@ -78,9 +78,7 @@ func (s *Store) Create(spec schema.Spec, ttl time.Duration) (localstore.Surface,
 }
 
 func (s *Store) CreateWithValues(spec schema.Spec, ttl time.Duration, values map[string]any) (localstore.Surface, string, error) {
-	if values == nil {
-		values = map[string]any{}
-	}
+	values = schema.InitializeValues(spec, values)
 	if err := schema.ValidateValues(spec, values); err != nil {
 		return localstore.Surface{}, "", err
 	}
@@ -192,8 +190,11 @@ func (s *Store) Update(id, capability string, spec schema.Spec) (localstore.Surf
 	if e != nil {
 		return v, e
 	}
+	if v.Result.Status == schema.StatusSubmitted {
+		return v, localstore.ErrSubmitted
+	}
 	old := v.Result.Revision
-	v.Result.Values = schema.FilterCompatibleValues(v.Spec, spec, v.Result.Values)
+	v.Result.Values = schema.InitializeValues(spec, schema.FilterCompatibleValues(v.Spec, spec, v.Result.Values))
 	v.Spec = spec
 	v.Result.Revision++
 	v.Result.UpdatedAt = s.now().UTC()
@@ -209,6 +210,9 @@ func (s *Store) WriteState(publicID string, revision uint64, values map[string]a
 	}
 	if v.ClosedAt != nil {
 		return v, localstore.ErrClosed
+	}
+	if v.Result.Status == schema.StatusSubmitted {
+		return v, localstore.ErrSubmitted
 	}
 	if revision != v.Result.Revision {
 		return v, localstore.ErrConflict
@@ -237,6 +241,9 @@ func (s *Store) Submit(publicID string) (localstore.Surface, error) {
 	if v.ClosedAt != nil {
 		return v, localstore.ErrClosed
 	}
+	if v.Result.Status == schema.StatusSubmitted {
+		return v, localstore.ErrSubmitted
+	}
 	if e = schema.ValidateSubmission(v.Spec, v.Result.Values); e != nil {
 		return v, e
 	}
@@ -259,9 +266,12 @@ func (s *Store) Reset(publicID string) (localstore.Surface, error) {
 	if v.ClosedAt != nil {
 		return v, localstore.ErrClosed
 	}
+	if v.Result.Status == schema.StatusSubmitted {
+		return v, localstore.ErrSubmitted
+	}
 	old := v.Result.Revision
 	v.Result.Status = schema.StatusActive
-	v.Result.Values = map[string]any{}
+	v.Result.Values = schema.InitializeValues(v.Spec, nil)
 	v.Result.SubmittedAt = nil
 	v.Result.Revision++
 	v.Result.UpdatedAt = s.now().UTC()
@@ -281,7 +291,9 @@ func (s *Store) Close(id, capability string) (localstore.Surface, error) {
 	old := v.Result.Revision
 	now := s.now().UTC()
 	v.ClosedAt = &now
-	v.Result.Status = schema.StatusClosed
+	if v.Result.Status != schema.StatusSubmitted {
+		v.Result.Status = schema.StatusClosed
+	}
 	v.Result.Revision++
 	v.Result.UpdatedAt = now
 	if e = s.save(v, old); e != nil {
@@ -343,6 +355,9 @@ func (s *Store) AddAsset(id, capability, filename, contentType string, data []by
 	v, e := s.Get(id, capability)
 	if e != nil {
 		return v, localstore.Asset{}, e
+	}
+	if v.Result.Status == schema.StatusSubmitted {
+		return v, localstore.Asset{}, localstore.ErrSubmitted
 	}
 	assetID, e := randomToken(18)
 	if e != nil {
